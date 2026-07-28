@@ -1,12 +1,18 @@
 package com.inspien.eai.integration.order;
 
+import com.inspien.eai.common.id.InMemoryIdSequence;
+import com.inspien.eai.common.id.SequenceKey;
+import com.inspien.eai.common.id.SequentialIdGenerator;
+import com.inspien.eai.common.id.SerialIdCodec;
 import com.inspien.eai.engine.InterfaceId;
 import com.inspien.eai.engine.message.CanonicalMessage;
 import com.inspien.eai.engine.message.MessageHeader;
 import com.inspien.eai.engine.validator.ValidationResult;
 import com.inspien.eai.engine.validator.ValidationResult.SkipReason;
+import com.inspien.eai.integration.order.mapper.OrderMapper;
 import com.inspien.eai.integration.order.sender.OrderXmlParser;
 import com.inspien.eai.integration.order.source.OrderSourceMessage;
+import com.inspien.eai.integration.order.target.OrderRecord;
 import com.inspien.eai.integration.order.validator.OrderValidator;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.DisplayName;
@@ -15,10 +21,12 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 실물 샘플 데이터에 대한 검증 — <b>파일이 있을 때만</b> 실행된다.
@@ -73,6 +81,33 @@ class RealSampleDataTest {
                 () -> assertEquals(11, result.skipped().size()),
                 () -> assertEquals(7, result.skipDetail().get(SkipReason.ORPHAN_ITEM.name())),
                 () -> assertEquals(4, result.skipDetail().get(SkipReason.HEADER_WITHOUT_ITEM.name())));
+    }
+
+    @Test
+    @DisplayName("매핑 결과가 63행이고 ORDER_ID 가 규격에 맞게 중복 없이 부여된다")
+    void mapsRealSampleToRows() throws IOException {
+        OrderSourceMessage source = loadSample();
+        CanonicalMessage<OrderSourceMessage> message =
+                new CanonicalMessage<>(MessageHeader.issue(InterfaceId.IF_ORD_001), source);
+
+        ValidationResult<OrderSourceMessage> validated = validator.validate(message);
+
+        InMemoryIdSequence sequence = new InMemoryIdSequence();
+        OrderMapper mapper = new OrderMapper(
+                new SequentialIdGenerator(sequence, SequenceKey.ORDER), "TESTKEY1");
+
+        List<OrderRecord> records = mapper.map(validated.accepted());
+
+        assertAll(
+                () -> assertEquals(63, records.size(), "DB 적재 행 수 = 영수증 파일 라인 수"),
+                () -> assertEquals(63, records.stream().map(OrderRecord::orderId).distinct().count(),
+                        "ORDER_ID 가 중복되면 두 번째 INSERT 에서 PK 위반이 난다"),
+                () -> assertTrue(records.stream().allMatch(r -> SerialIdCodec.matches(r.orderId())),
+                        "과제 지정 형식 [A-Z][0-9]{3} 을 벗어나면 안 된다"),
+                () -> assertTrue(records.stream().allMatch(r -> "N".equals(r.status())),
+                        "적재 시점에는 전부 미전송 상태여야 배치가 집어간다"),
+                () -> assertEquals(63, sequence.peek(SequenceKey.ORDER.key()),
+                        "채번은 실행당 한 번만 일어난다"));
     }
 
     private OrderSourceMessage loadSample() throws IOException {
