@@ -215,6 +215,8 @@ ORDER_ID ^ USER_ID ^ ITEM_ID ^ APPLICANT_KEY ^ NAME ^ ADDRESS ^ ITEM_NAME ^ PRIC
 - `STATUS` 는 파일에 **포함되지 않는다** (DB 9필드 / 파일 8필드)
 - **필드 순서가 DB 컬럼 순서와 다르다.** DB 3·4번은 `USER_ID`·`ITEM_ID` 이나 파일은 2·3·4번이 `USER_ID`·`ITEM_ID`·`APPLICANT_KEY` 다. DB 컬럼 순서를 그대로 join 하면 오답
 - 구분자 `^`, 종결자 `\n` 고정. 마지막 라인에도 `\n` 부여
+- 값에 구분자·개행이 섞이면 **실패시킨다**. 이 포맷에는 이스케이프 규칙이 없어, 그대로 내보내면 수신 측이 **정상 파일로 파싱해** 엉뚱한 값을 배송 정보로 쓴다
+- 대상 인코딩으로 표현할 수 없는 문자도 **사전 차단**한다. `String.getBytes()` 는 그런 문자를 예외 없이 `?` 로 바꾸며, 이는 파일명이 `?` 로 깨진 것과 **정확히 같은 종류의 사고**다
 - 전송 모드 **binary** (ASCII 모드는 개행 변조 위험)
 - **파일 내용 인코딩: EUC-KR** (D-07)
 
@@ -245,6 +247,13 @@ ORDER_ID ^ USER_ID ^ ITEM_ID ^ APPLICANT_KEY ^ NAME ^ ADDRESS ^ ITEM_NAME ^ PRIC
 | 2 | `FEAT` 응답에 `UTF8` 이 있으면 `OPTS UTF8 ON` 전송 |
 | 3 | 로그인 → `setFileType(BINARY_FILE_TYPE)` → `enterLocalPassiveMode()` |
 | 4 | 업로드 후 리스팅해 파일명의 비ASCII 문자 수 > 0 검증. 0 이면 실패로 처리 |
+
+> **구현은 이보다 강하게 한다.** "비ASCII > 0" 대신 서버가 돌려준 목록에
+> 우리가 보낸 이름과 **완전히 같은 이름이 있는지**를 본다. 치환·절단·정규화 중
+> 무엇이 일어나도 걸리며, 참여자명이 영문인 경우에도 오판이 나지 않는다.
+>
+> 검증 위치는 **확정 이전**이다. `.tmp` 를 올린 직후에 확인하므로 실패하면 아직 되돌릴 수 있고,
+> DB 도 함께 롤백된다. 확정 뒤에 발견했다면 수동 조치 대상이 됐을 것이다.
 
 > 4번을 넣는 이유: 인코딩 사고는 **예외 없이 성공으로 보고된다.**
 > 스스로 확인하지 않으면 면접 시연 자리에서 처음 알게 된다.
@@ -451,7 +460,9 @@ UPDATE ORDER_TB SET STATUS = 'Y'
 | `EAI-2002` | JDBC_EXEC_ERROR |
 | `EAI-3001` | FTP_CONN_ERROR |
 | `EAI-3002` | FTP_UPLOAD_ERROR |
-| `EAI-3003` | FTP_COMPENSATION_FAILED |
+| `EAI-3003` | FTP_COMPENSATION_FAILED (임시 파일 삭제 실패 — 수동 조치) |
+| `EAI-3004` | FTP_ENCODING_ERROR (파일명 또는 내용 인코딩 손상 — 재시도 불가) |
+| `EAI-3005` | FTP_RENAME_FAILED (확정 후 이름 변경 실패 — 재시도 불가, 수동 조치) |
 | `EAI-4001` | BATCH_LOCK_ACQUIRE_FAILED |
 | `EAI-4002` | ID_ISSUE_FAILED (채번 실패 — 재시도 가능) |
 | `EAI-4003` | ID_SPACE_EXHAUSTED (26,000 소진 — 재시도 불가) |
@@ -462,6 +473,8 @@ UPDATE ORDER_TB SET STATUS = 'Y'
 |---|---|---|
 | Oracle | `oracle.net.CONNECT_TIMEOUT` | 10s |
 | Oracle | `oracle.jdbc.ReadTimeout` | 20s |
+| Oracle | `Statement.setQueryTimeout` | 20s |
+| Oracle | Hikari `connectionTimeout` (풀 대기) | 15s — 드라이버 connect 보다 길게 |
 | FTP | connectTimeout / dataTimeout | 10s / 15s |
 
 ---

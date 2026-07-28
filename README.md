@@ -140,7 +140,7 @@ gradlew probeRun
 - [x] 채번 (Redis `INCRBY` 전량 선점 + `MAX(ORDER_ID)` 시딩)
 - [x] IF-ORD-001 — XML 파서 · Validator · Mapper
 - [x] IF-ORD-001 — JDBC Receiver (`ORDER_TB`, 커밋 보류)
-- [ ] IF-ORD-001 — FTP Receiver (영수증 파일)
-- [ ] IF-ORD-001 — IntegrationFlow · 주문 REST API
+- [x] IF-ORD-001 — FTP Receiver (영수증 파일, 임시명 업로드 + 파일명 검증)
+- [ ] IF-ORD-001 — DeliveryCoordinator · IntegrationFlow · 주문 REST API
 - [ ] IF-SHP-001 운송사 전송 배치
 - [ ] To-Be 아키텍처 다이어그램 · 발표 자료
