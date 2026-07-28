@@ -3,38 +3,18 @@
 #
 #  redis : 운영 의존성. ORDER_ID/SHIPMENT_ID 원자 채번(INCR)과
 #          배치 중복 실행 방지 분산 락에 실제로 사용된다.
-#  mysql : 테스트 대역(test double). 실제 적재 대상은 과제에서
-#          발급받는 원격 DB(ORDER_TB_CONN / SHIPMENT_TB_CONN)이며,
-#          개발 중 원격 DB를 반복 오염시키지 않기 위해 동일 스키마를
-#          로컬에 두고 먼저 검증한다.
+#
+#  ※ 로컬 DB 컨테이너는 두지 않는다 (설계 결정 D-08).
+#     적재 대상이 Oracle 19c 로 확정됐고(BOOT-001 실측), MySQL 컨테이너는
+#     충실한 테스트 대역이 아니다 — LIMIT vs FETCH FIRST, SYSDATE,
+#     VARCHAR2 의 BYTE 길이 의미론이 전부 다르다.
+#     로컬에서 통과한 SQL 이 원격에서 깨지는 대역은 안전망이 아니라 위험 요소다.
+#     원격 DB 는 APPLICANT_KEY 로 지원자별 격리돼 있어 직접 사용해도 안전하다.
+#     실제 스키마는 docs/interface-spec.md 와 sql/oracle-schema.reference.sql 참조.
 #
 # 포트는 로컬 기존 인스턴스와 충돌하지 않도록 비표준으로 매핑했다.
 # ─────────────────────────────────────────────────────────────
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: inspien-mysql
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-    environment:
-      MYSQL_ROOT_PASSWORD: localroot
-      MYSQL_DATABASE: inspien_eai
-      MYSQL_USER: inspien
-      MYSQL_PASSWORD: localpass
-      TZ: Asia/Seoul
-    ports:
-      - "13306:3306"
-    volumes:
-      - mysql-data:/var/lib/mysql
-      - ./sql/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-plocalroot"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
   redis:
     image: redis:7.4-alpine
     container_name: inspien-redis
@@ -50,5 +30,4 @@ services:
       retries: 5
 
 volumes:
-  mysql-data:
   redis-data:
