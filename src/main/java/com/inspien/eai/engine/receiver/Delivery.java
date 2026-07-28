@@ -35,6 +35,21 @@ import com.inspien.eai.engine.exception.EaiErrorCode;
  */
 public interface Delivery {
 
+    /**
+     * 대상이 0건일 때 쓰는 전달 작업. 확정할 것도 되돌릴 것도 없다.
+     *
+     * <p>{@code null} 을 돌려주고 조율자가 분기하게 두지 않는다. 0건은 예외 상황이 아니라
+     * <b>정상적인 결과 중 하나</b>이고, 정상 흐름을 {@code null} 검사로 표현하기 시작하면
+     * 그 검사는 언젠가 한 곳에서 빠진다.
+     *
+     * <p>실질적 이득도 있다 — 이것이 없으면 Receiver 가 0건에도 커넥션을 얻고
+     * 트랜잭션을 열어야 한다. 아무 행도 넣지 않을 작업에 커넥션을 점유하는 것은
+     * 실시간 응답 경로에서 순수한 낭비다.
+     */
+    static Delivery empty() {
+        return NoOpDelivery.INSTANCE;
+    }
+
     /** 이 전달 작업이 다루는 건수 */
     int count();
 

@@ -30,6 +30,12 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     implementation("org.springframework.boot:spring-boot-starter-validation")
 
+    // ── JDBC Receiver. DataSource / HikariCP / JdbcTemplate.
+    //    ORM 을 쓰지 않는 것은 의도다 — 연계 엔진은 도메인을 소유하지 않고
+    //    표준 레코드를 그대로 적재할 뿐이므로 엔티티·영속성 컨텍스트가 필요 없다.
+    //    대상 스키마가 불변 조건인 과제에서는 DDL 자동 생성 여지가 있는 기능이 위험 요소이기도 하다.
+    implementation("org.springframework.boot:spring-boot-starter-jdbc")
+
     // ── 적재 대상 DB 는 Oracle 이다 (BOOT-000 복호화 결과: jdbc:oracle:thin).
     //    ojdbc11 = JDK 11+ 대상 빌드. Java 21 에서 사용.
     runtimeOnly("com.oracle.database.jdbc:ojdbc11:23.4.0.24.05")
@@ -50,9 +56,6 @@ dependencies {
     testCompileOnly("org.projectlombok:lombok")
     testAnnotationProcessor("org.projectlombok:lombok")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-
-    // ── 다음 커밋에서 추가 예정
-    // implementation("org.springframework.boot:spring-boot-starter-jdbc")
 }
 
 tasks.withType<JavaCompile> {

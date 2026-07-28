@@ -11,6 +11,11 @@ spring:
     banner-mode: off
 
 inspien:
+  # 데이터 평면을 끈다. 이 단계는 접속정보를 '받아 오는' 중이므로
+  # DB 커넥션 풀을 띄우려 하면 순환이다 (HikariCP 는 풀 생성 시 접속을 시도한다).
+  jdbc:
+    enabled: false
+
   bootstrap:
     enabled: true
 

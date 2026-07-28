@@ -27,6 +27,27 @@ logging:
     console: "%d{HH:mm:ss.SSS} %-5level [%X{txId:-}] %logger{36} - %msg%n"
 
 inspien:
+  # 적재 대상 DB (Oracle 19c, 원격).
+  # 접속정보(URL·계정·비밀번호)는 여기 없다 — BOOT-000 이 복호화해 secrets/ 에 놓은
+  # 산출물에서 읽는다. 여기에 있는 것은 우리가 정하는 운영 파라미터뿐이다.
+  jdbc:
+    # 데이터 평면 스위치. 제어 평면(bootstrap/probe) 프로파일에서는 false 로 끈다 —
+    # 접속정보를 '받아 오는' 단계에 커넥션 풀이 떠 있어야 할 이유가 없다.
+    enabled: true
+
+    # 타임아웃을 전부 명시한다 (정의서 5.2). JDBC 기본값은 대부분 무한 대기고,
+    # 상대가 죽는 것보다 '응답하지 않는 것' 이 서비스를 멈추는 진짜 원인이다.
+    connect-timeout: 10s      # oracle.net.CONNECT_TIMEOUT
+    read-timeout: 20s         # oracle.jdbc.ReadTimeout
+    query-timeout: 20s        # Statement.setQueryTimeout
+    # Hikari connectionTimeout. 풀이 비면 이 대기에 드라이버 접속 시간이 포함되므로
+    # connect-timeout 보다 길어야 한다. 짧으면 진짜 원인을 보기 전에 풀이 먼저 끊는다.
+    pool-wait-timeout: 15s
+    # 보상 트랜잭션 구조상 커넥션이 FTP 업로드 시간만큼 점유된다.
+    # 1로 두면 배치와 실시간이 서로를 기다린다.
+    maximum-pool-size: 5
+    batch-size: 500
+
   bootstrap:
     # 평상시 실행에는 관여하지 않는다. bootstrap 프로파일에서만 true 로 켜진다.
     enabled: false

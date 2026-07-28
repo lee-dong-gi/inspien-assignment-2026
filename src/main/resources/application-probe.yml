@@ -10,6 +10,12 @@ spring:
     banner-mode: off
 
 inspien:
+  # 점검은 DriverManager 로 직접 붙어 실측한다. 연계 운영용 커넥션 풀과는 별개고,
+  # 채번 시딩 같은 데이터 평면 초기화가 점검 경로에서 동작하면
+  # '상태를 바꾸지 않는 점검' 이라는 전제가 깨진다 (Redis 카운터가 올라간다).
+  jdbc:
+    enabled: false
+
   bootstrap:
     enabled: false      # BOOT-000 러너는 돌리지 않는다
   probe:
