@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────
+# 보안 — 절대 커밋되면 안 되는 것 (최우선)
+# ─────────────────────────────────────────────
+# BOOT-000 응답 원문 및 복호화된 접속정보 산출물
+secrets/
+!secrets/.gitkeep
+
+# 로컬 전용 설정 (실제 크리덴셜 포함)
+src/main/resources/application-local.yml
+src/main/resources/application-local.yaml
+src/main/resources/application-local.properties
+*.local.yml
+.env
+.env.*
+!.env.example
+
+# 인터페이스 실행 로그 (개인정보 포함 가능)
+logs/
+
+# ─────────────────────────────────────────────
+# Gradle / Java
+# ─────────────────────────────────────────────
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+out/
+bin/
+*.class
+*.log
+*.jar
+!gradle/wrapper/*.jar
+
+# ─────────────────────────────────────────────
+# IntelliJ IDEA
+# ─────────────────────────────────────────────
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/shelf/
+.idea/httpRequests/
+*.iws
+*.iml
+*.ipr
+
+# ─────────────────────────────────────────────
+# OS
+# ─────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
