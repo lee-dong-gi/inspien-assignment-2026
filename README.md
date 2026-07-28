@@ -136,8 +136,11 @@ gradlew probeRun
 - [x] BOOT-000 과제 정보 수신 및 복호화
 - [x] BOOT-001 연계 대상 사전 점검 (Oracle / FTP 실측)
 - [x] 인터페이스 정의서 v1.0 확정
-- [ ] EAI 코어 (Message / Sender / Mapper / Receiver / Flow / InterfaceLogger)
-- [ ] IF-ORD-001 주문 실시간 연계
+- [x] EAI 코어 (Message / Sender / Mapper / Receiver / Flow / InterfaceLogger)
+- [x] 채번 (Redis `INCRBY` 전량 선점 + `MAX(ORDER_ID)` 시딩)
+- [x] IF-ORD-001 — XML 파서 · Validator · Mapper
+- [x] IF-ORD-001 — JDBC Receiver (`ORDER_TB`, 커밋 보류)
+- [ ] IF-ORD-001 — FTP Receiver (영수증 파일)
+- [ ] IF-ORD-001 — IntegrationFlow · 주문 REST API
 - [ ] IF-SHP-001 운송사 전송 배치
-- [ ] 예외 체계 · 운영 로그 · 재처리
 - [ ] To-Be 아키텍처 다이어그램 · 발표 자료

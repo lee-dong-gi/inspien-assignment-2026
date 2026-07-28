@@ -190,6 +190,8 @@ HEADER 1건 × 해당 USER_ID 의 ITEM n건  →  ORDER_TB n행  =  영수증 �
 
 - PK: `(ORDER_ID, APPLICANT_KEY)` 복합
 - Batch INSERT, 파라미터 바인딩 필수(문자열 결합 SQL 금지). 실패 시 전체 롤백
+- 배치 결과 검증은 **합산이 아니라 개수**로 한다. JDBC 는 성공을 `SUCCESS_NO_INFO`(`-2`) 로 돌려줄 수 있어, 합산하면 멀쩡한 적재가 실패로 뒤집힌다
+- 테이블명은 바인딩할 수 없어 유일하게 문자열로 조립되는 값이다. 출처가 BOOT-000 산출물이라도 식별자 규격 검증을 거친다
 
 ### 3.6 Target B — 영수증 파일 (FTP Receiver)
 
@@ -478,6 +480,9 @@ UPDATE ORDER_TB SET STATUS = 'Y'
 | D-08 | 로컬 Docker DB | 미사용 | 대상이 Oracle 19c 로 확정. MySQL 컨테이너는 충실한 테스트 대역이 아니며, 원격 DB 가 지원자별 `APPLICANT_KEY` 로 격리돼 있어 직접 사용해도 안전 |
 | D-09 | 채번 저장소·폴백 | **Redis `INCRBY` 단일 채번기 + DB `MAX` 시딩.** DB 시퀀스 테이블 철회 | 시퀀스 테이블은 대상 스키마 변경이라 "기존 시스템 불변" 원칙 위반. 또 대체 채번기로 자동 전환하는 설계는 두 채번기가 동시에 살아 있는 순간 중복을 만든다 |
 | D-10 | 공간 소진 시 | 운영은 `EAI-4003` 으로 실패, 리셋은 애플리케이션 밖 별도 도구(`tools/reset-sequence.ps1`) | 카운터를 되돌리는 경로가 앱 안에 있으면 설정 실수로 운영에서 실행된다 |
+| D-11 | JDBC 트랜잭션 경계 관리 | **커넥션을 객체가 직접 보유** (`PendingCommitDelivery`). `@Transactional` / `TransactionTemplate` / `PlatformTransactionManager` 모두 미채택 | 앞 둘은 트랜잭션 경계가 **한 메서드 안에 닫힌다**는 전제인데, 우리 경계는 `prepare()`→`commit()` 이고 그 사이에 FTP 가 낀다. 콜백 안에 FTP 를 넣으면 Receiver 가 다른 Receiver 를 호출하는 구조가 돼 "수신처가 늘어도 Receiver 만 추가" 가 무너진다. 셋째는 트랜잭션을 **ThreadLocal 에 묶어** "두 호출이 같은 스레드여야 한다" 는 제약을 타입에 드러나지 않게 만든다 — FTP 를 비동기로 돌리는 순간 조용히 깨진다. **대가**: FTP 업로드 시간만큼 DB 커넥션을 점유한다 → 풀 크기 5, FTP 타임아웃 명시로 방어. 이 결합 자체를 없애려면 트랜잭셔널 아웃박스로 가야 한다(과제 범위 밖) |
+| D-12 | 접속정보 주입 경로 | `spring.datasource.*` 미사용. `DataSourceAutoConfiguration` **배제** 후 `secrets/` 산출물로 직접 조립 | 자동 설정을 쓰려면 BOOT-000 이 복호화한 크리덴셜을 설정 파일로 **한 번 더 복사**해야 하고, 그 복사본이 곧 커밋 사고의 경로다. 또 배제하지 않으면 제어 평면(`bootstrapRun`)이 "URL 이 없다" 며 죽는다 — 접속정보를 *받아 오는* 단계가 접속정보를 요구받는 순환 |
+| D-13 | 채번 시딩 실행 시점 | `@Bean(initMethod)` — 컨텍스트 갱신 중. `ApplicationRunner` 미채택 | 러너는 **웹 서버가 요청을 받기 시작한 뒤**에 돌아, 그 사이 요청은 시딩 전 카운터로 채번된다. `seedAtLeast` 는 원자적이지 않고 "트래픽 유입 전 1회" 가 전제이므로 그 전제를 지키는 자리는 초기화 시점뿐이다. 실패 시 **기동 중단** — 복원 없이 뜨면 첫 요청부터 PK 위반이다 |
 
 ---
 
