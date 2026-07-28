@@ -1,5 +1,6 @@
 package com.inspien.eai.bootstrap.probe;
 
+import com.inspien.eai.common.secret.SecretsLoader;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;

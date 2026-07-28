@@ -1,5 +1,6 @@
 package com.inspien.eai.bootstrap.probe;
 
+import com.inspien.eai.common.secret.SecretsLoader;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPClient;
