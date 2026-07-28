@@ -2,13 +2,17 @@
 # 보안 — 절대 커밋되면 안 되는 것 (최우선)
 # ─────────────────────────────────────────────
 # BOOT-000 응답 원문 및 복호화된 접속정보 산출물
-secrets/
+# `secrets/` 로 쓰면 디렉터리 자체가 제외되어 하위 재포함(!)이 무효가 된다.
+# 디렉터리 구조는 남기고 내용물만 제외하기 위해 `secrets/*` 를 쓴다.
+secrets/*
 !secrets/.gitkeep
 
 # 로컬 전용 설정 (실제 크리덴셜 포함)
 src/main/resources/application-local.yml
 src/main/resources/application-local.yaml
 src/main/resources/application-local.properties
+# 템플릿은 값이 없으므로 커밋 대상이다
+!src/main/resources/application-local.yml.example
 *.local.yml
 .env
 .env.*
