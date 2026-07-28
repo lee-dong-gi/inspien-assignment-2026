@@ -38,11 +38,11 @@ bin/
 # ─────────────────────────────────────────────
 # IntelliJ IDEA
 # ─────────────────────────────────────────────
-.idea/workspace.xml
-.idea/tasks.xml
-.idea/usage.statistics.xml
-.idea/shelf/
-.idea/httpRequests/
+# IDE 설정은 저장소에 넣지 않는다.
+# 개별 파일만 제외하는 방식은 팀이 .idea 를 공유(run configuration, code style)할 때의
+# 관례인데, 이 저장소는 그럴 이유가 없다. 평가자가 클론했을 때 IDE 설정이 섞여 들어가면
+# 노이즈일 뿐이고, 실행 방법은 README 와 Gradle 태스크로 충분히 재현된다.
+.idea/
 *.iws
 *.iml
 *.ipr
