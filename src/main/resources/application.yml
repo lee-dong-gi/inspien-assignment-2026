@@ -3,6 +3,16 @@ spring:
     name: inspien-eai
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:local}
+  data:
+    redis:
+      # docker-compose.yml 에서 16379 로 매핑했다 (로컬 기존 Redis 와 충돌 회피).
+      #   docker compose up -d
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:16379}
+      # 채번은 실시간 응답 경로 위에 있다. 무한 대기하면 Redis 장애가
+      # 그대로 주문 API 응답 지연으로 전파된다. 짧게 끊고 재시도로 넘긴다.
+      connect-timeout: 2s
+      timeout: 2s
 
 server:
   port: 8080

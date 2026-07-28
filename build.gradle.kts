@@ -37,6 +37,11 @@ dependencies {
     // ── FTP Receiver. 포트 30021 의 프로토콜 판정은 BOOT-001 에서 수행한다.
     implementation("commons-net:commons-net:3.11.1")
 
+    // ── 채번(INCRBY) · 배치 중복 실행 방지(분산 락).
+    //    캐시가 아니라 "프로세스 밖에 있어야 하는 상태" 를 두는 자리다.
+    //    AtomicLong 은 재기동하면 0부터 다시 시작해 이미 적재된 번호와 충돌한다.
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
+
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
@@ -48,7 +53,6 @@ dependencies {
 
     // ── 다음 커밋에서 추가 예정
     // implementation("org.springframework.boot:spring-boot-starter-jdbc")
-    // implementation("org.springframework.boot:spring-boot-starter-data-redis")
 }
 
 tasks.withType<JavaCompile> {

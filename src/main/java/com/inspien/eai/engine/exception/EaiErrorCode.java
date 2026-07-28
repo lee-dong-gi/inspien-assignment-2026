@@ -10,7 +10,7 @@ package com.inspien.eai.engine.exception;
  *   1xxx  메시지 자체의 문제   (송신 시스템 / 데이터)
  *   2xxx  JDBC 구간
  *   3xxx  FTP 구간
- *   4xxx  배치 운영
+ *   4xxx  공통 운영 (배치 제어 · 채번)
  * </pre>
  *
  * <p>{@link #retryable} 은 예외 처리 전략을 코드에 붙여 둔 것이다.
@@ -32,7 +32,8 @@ public enum EaiErrorCode {
     FTP_FILENAME_ENCODING_ERROR("EAI-3004", "FTP 파일명 인코딩 손상", false),
 
     BATCH_LOCK_ACQUIRE_FAILED("EAI-4001", "배치 분산 락 획득 실패", false),
-    ID_ISSUE_FAILED("EAI-4002", "채번 실패", true);
+    ID_ISSUE_FAILED("EAI-4002", "채번 실패", true),
+    ID_SPACE_EXHAUSTED("EAI-4003", "채번 공간 소진 — 26,000개 한도 도달", false);
 
     private final String code;
     private final String message;
@@ -61,6 +62,10 @@ public enum EaiErrorCode {
      * <p>{@link #FTP_COMPENSATION_FAILED} 가 재시도 불가인 것은 특히 의도적이다.
      * 보상까지 실패한 상태는 자동 회복 대상이 아니라 <b>사람이 개입해야 하는 상태</b>이며,
      * 조용히 재시도로 덮으면 정합성 깨진 사실 자체가 묻힌다.
+     *
+     * <p>채번 둘을 나눈 것도 같은 기준이다. {@link #ID_ISSUE_FAILED}(Redis 단절)는
+     * 다시 하면 될 수 있지만, {@link #ID_SPACE_EXHAUSTED}(26,000 소진)는 몇 번을 해도 같다.
+     * 둘을 한 코드로 묶으면 소진 상태를 영원히 재시도하게 된다.
      */
     public boolean retryable() {
         return retryable;
