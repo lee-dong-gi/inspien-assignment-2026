@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  로그 채널 분리.
+
+    CONSOLE    개발자용. 디버깅 맥락. Spring Boot 기본 패턴 + MDC txId
+    INTERFACE  운영자용. 인터페이스 실행 이력. logs/interface/interface-yyyyMMdd.log
+
+  한 파일에 섞으면 디버그 로그 사이에 실행 이력이 파묻혀 "오늘 몇 건 흘렀나" 를
+  볼 수 없게 된다. additivity=false 로 완전히 갈라 놓는다.
+
+  INTERFACE 채널의 열 정렬은 여기서 하지 않는다. 패턴 레이아웃으로 우측 정렬까지
+  맞추면 읽기 힘든 XML 이 되고 테스트할 수도 없다. Logback 은 시각과 개행만 담당하고,
+  나머지 열은 InterfaceLogFormatter 가 조립한다.
+-->
+<configuration>
+
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <property name="INTERFACE_LOG_DIR" value="${INTERFACE_LOG_DIR:-logs/interface}"/>
+
+    <appender name="INTERFACE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <!--
+          <file> 을 지정하지 않는다. 그래야 현재 기록 중인 파일 이름도 날짜형이 되어
+          시연 중에 "오늘 파일" 을 바로 지목할 수 있다.
+        -->
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${INTERFACE_LOG_DIR}/interface-%d{yyyyMMdd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <charset>UTF-8</charset>
+            <!-- DB 시간대가 Asia/Seoul 이다. 시각 대조가 어긋나지 않도록 명시 고정한다. -->
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS, Asia/Seoul} | %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="INTERFACE" level="INFO" additivity="false">
+        <appender-ref ref="INTERFACE_FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+
+</configuration>
