@@ -1,0 +1,33 @@
+spring:
+  application:
+    name: inspien-eai
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+server:
+  port: 8080
+
+logging:
+  charset:
+    console: UTF-8
+    file: UTF-8
+  level:
+    com.inspien.eai: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{txId:-}] %logger{36} - %msg%n"
+
+inspien:
+  bootstrap:
+    # 평상시 실행에는 관여하지 않는다. bootstrap 프로파일에서만 true 로 켜진다.
+    enabled: false
+    endpoint: https://inspien.it-cpi002-rt.cfapps.ap10.hana.ondemand.com/http/RecruitingTest
+    # ⚠️ 실제 값은 여기에 쓰지 않는다. 환경변수 또는 application-local.yml 로 주입.
+    username: ${INSPIEN_API_USERNAME:}
+    password: ${INSPIEN_API_PASSWORD:}
+    applicant:
+      name: ${INSPIEN_APPLICANT_NAME:}
+      phone-number: ${INSPIEN_APPLICANT_PHONE:}
+      email: ${INSPIEN_APPLICANT_EMAIL:}
+    output-dir: ./secrets
+    connect-timeout: 10s
+    read-timeout: 30s

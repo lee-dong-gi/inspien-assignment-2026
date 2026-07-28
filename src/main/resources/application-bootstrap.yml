@@ -1,0 +1,19 @@
+# BOOT-000 전용 프로파일 (제어 평면)
+#
+#   gradlew bootstrapRun                                          # 저장된 원문 재사용 (기본)
+#   gradlew bootstrapRun --args="--inspien.bootstrap.source=api"  # 실제 호출 (최초 1회)
+#
+# 웹 서버를 띄우지 않는다. 설정을 받아오는 1회성 작업이므로
+# 러너가 끝나면 애플리케이션도 그대로 종료된다.
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+
+inspien:
+  bootstrap:
+    enabled: true
+
+    # 외부 연계 시스템 호출은 비용이자 리스크다. 파서·복호화를 고칠 때마다 상대 시스템을
+    # 때리지 않도록 기본값을 file 로 둔다. 최초 1회만 api 로 실행한다.
+    source: file
