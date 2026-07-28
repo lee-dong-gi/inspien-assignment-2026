@@ -1,0 +1,16 @@
+# BOOT-001 전용 프로파일 (제어 평면)
+#
+#   gradlew probeRun
+#
+# 연계 대상(Oracle / FTP)에 실제로 닿는지, 그리고 대상의 실제 스펙이 무엇인지 확인한다.
+# 대상 시스템의 상태는 바꾸지 않는다 — 읽기 전용 조회와 디렉터리 탐색만 수행.
+spring:
+  main:
+    web-application-type: none
+    banner-mode: off
+
+inspien:
+  bootstrap:
+    enabled: false      # BOOT-000 러너는 돌리지 않는다
+  probe:
+    enabled: true
