@@ -20,6 +20,8 @@ public enum EaiErrorCode {
 
     VALIDATION_ERROR("EAI-1001", "유효성 검증 실패", false),
     MAPPING_ERROR("EAI-1002", "매핑 오류", false),
+    SOURCE_PARSE_ERROR("EAI-1003", "소스 구문 분석 실패", false),
+    SOURCE_ENCODING_ERROR("EAI-1004", "소스 인코딩 해독 실패", false),
 
     JDBC_CONN_ERROR("EAI-2001", "DB 접속 실패", true),
     JDBC_EXEC_ERROR("EAI-2002", "DB 실행 실패", false),
