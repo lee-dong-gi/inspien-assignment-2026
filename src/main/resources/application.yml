@@ -48,6 +48,34 @@ inspien:
     maximum-pool-size: 5
     batch-size: 500
 
+  # 영수증 파일 전송 대상 (평문 FTP, Pure-FTPd).
+  # 접속정보는 secrets/ftp.conn.properties 에서 온다.
+  ftp:
+    enabled: true
+
+    connect-timeout: 10s
+    data-timeout: 15s
+
+    # ★ 파일명과 내용은 서로 다른 채널로 나간다. 인코딩도 따로 정한다 (정의서 3.7).
+    #   control-encoding : 제어 채널 = 파일명. commons-net 기본값은 ISO-8859-1 이라
+    #                      그대로 두면 한글이 '?' 로 치환된 채 전송되고 예외도 안 난다.
+    #                      서버가 FEAT 에서 UTF8 을 선언함(BOOT-001 실측).
+    #   content-encoding : 파일 내용. 원본 XML 인코딩 계승 (D-07).
+    #                      판단이 갈릴 수 있어 설정으로 분리해 둔다.
+    control-encoding: UTF-8
+    content-encoding: EUC-KR
+
+    # 방화벽/NAT 환경에서 active 는 데이터 채널이 막힌다.
+    passive-mode: true
+
+    # .tmp 로 올리고 rename 하는 것이 곧 commit 이다 (정의서 3.9).
+    # 최종 이름으로 바로 올리면 업로드 직후부터 수집 배치가 가져갈 수 있다.
+    temp-suffix: ".tmp"
+
+    # 업로드 후 리스팅해 파일명이 보존됐는지 확인한다.
+    # 끄지 말 것 — 인코딩 사고는 예외 없이 성공으로 보고된다.
+    verify-uploaded-name: true
+
   bootstrap:
     # 평상시 실행에는 관여하지 않는다. bootstrap 프로파일에서만 true 로 켜진다.
     enabled: false

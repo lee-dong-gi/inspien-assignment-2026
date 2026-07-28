@@ -35,4 +35,17 @@ public class SecretsConfig {
     public ApplicantKey applicantKey(SecretsLoader secretsLoader) {
         return new ApplicantKey(secretsLoader.readText(BootstrapArtifactStore.APPLICANT_KEY));
     }
+
+    /**
+     * 참여자명은 산출물이 아니라 설정에서 온다.
+     *
+     * <p>BOOT-000 요청 본문에 실었던 것과 <b>같은 값</b>을 써야 한다.
+     * 영수증 파일명에 들어가는 이름과 제출한 이름이 갈라지면
+     * 채점 측이 둘을 대조할 때 맞지 않는다.
+     */
+    @Bean
+    @Lazy
+    public ApplicantName applicantName(BootstrapProperties properties) {
+        return new ApplicantName(properties.applicant().name());
+    }
 }
