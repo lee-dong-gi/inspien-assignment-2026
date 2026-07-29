@@ -44,7 +44,20 @@ public enum EaiErrorCode {
      */
     FTP_COMMIT_FAILED("EAI-3005", "FTP 확정 업로드 실패 — 수동 조치 필요", false),
 
-    BATCH_LOCK_ACQUIRE_FAILED("EAI-4001", "배치 분산 락 획득 실패", false),
+    /**
+     * 다른 실행이 락을 쥐고 있어 이번 주기를 건너뛴 경우 (IF-SHP-001).
+     *
+     * <p><b>이것은 장애가 아니라 설계대로 동작한 결과다.</b> 이전 주기가 5분을 넘겨 아직
+     * 돌고 있다는 뜻이며, 겹쳐 돌면 같은 주문이 두 번 운송사로 전달된다.
+     * 그럼에도 성공으로 보고하지 않는 이유는 <b>처리하지 못한 일이 남아 있다</b>는 사실을
+     * 감추면 안 되기 때문이다 — 이 코드가 매 주기 반복되면 배치가 사실상 멈춘 상태다.
+     *
+     * <p>재시도 불가로 둔 것은 그 자리에서 다시 시도해도 여전히 락이 잡혀 있기 때문이다.
+     * 회복은 재시도가 아니라 <b>다음 주기</b>가 담당한다.
+     * HTTP 로는 500 이 아니라 {@code 409 Conflict} 로 옮긴다 — 서버 결함이 아니라 상태 충돌이다.
+     */
+    BATCH_LOCK_ACQUIRE_FAILED("EAI-4001", "배치 분산 락 획득 실패 — 이전 주기 수행 중", false),
+
     ID_ISSUE_FAILED("EAI-4002", "채번 실패", true),
     ID_SPACE_EXHAUSTED("EAI-4003", "채번 공간 소진 — 26,000개 한도 도달", false),
 
@@ -65,7 +78,27 @@ public enum EaiErrorCode {
      * 최종 catch 가 반드시 있어야 하고, 그 자리에도 코드가 필요하다.
      * 여기에 걸리는 것은 사실상 <b>우리 코드의 버그</b>이므로 재시도 대상이 아니다.
      */
-    FLOW_ERROR("EAI-4005", "파이프라인 실행 오류", false);
+    FLOW_ERROR("EAI-4005", "파이프라인 실행 오류", false),
+
+    /**
+     * 락 저장소(Redis) 자체에 닿지 못한 경우 — {@link #BATCH_LOCK_ACQUIRE_FAILED} 와 <b>다르다.</b>
+     *
+     * <pre>
+     *   EAI-4001  락이 잡혀 있다      → 정상 동작. 다음 주기가 처리한다
+     *   EAI-4006  락을 확인할 수 없다 → 인프라 장애. 사람이 봐야 한다
+     * </pre>
+     *
+     * <p>둘을 한 코드로 묶으면 <b>Redis 가 죽어 있는 상태를 "정상적으로 겹침 방지 중" 으로
+     * 읽게 된다.</b> 배치는 매 주기 조용히 아무것도 하지 않고, 로그는 정상처럼 보인다.
+     * 겹침 방지 로그가 반복되는 것과 저장소 장애는 조치가 정반대이므로 반드시 나눈다.
+     *
+     * <p>락을 확인할 수 없을 때 <b>락 없이 진행하지 않는다.</b> 그 순간 배치가 겹쳐 돌 수 있고,
+     * 결과는 같은 주문의 중복 전송 — 되돌릴 수 없는 환경(append-only)에서는 최악의 실패다.
+     * "가용성을 위해 안전장치를 끄는" 선택은 이 인터페이스에서 하지 않는다.
+     *
+     * <p>재시도 가능으로 분류하되, 실제 회복은 다음 주기가 담당한다. HTTP 로는 503 이다.
+     */
+    BATCH_LOCK_STORE_ERROR("EAI-4006", "배치 락 저장소 접근 실패", true);
 
     private final String code;
     private final String message;
@@ -107,6 +140,9 @@ public enum EaiErrorCode {
      * <p>채번 둘을 나눈 것도 같은 기준이다. {@link #ID_ISSUE_FAILED}(Redis 단절)는
      * 다시 하면 될 수 있지만, {@link #ID_SPACE_EXHAUSTED}(26,000 소진)는 몇 번을 해도 같다.
      * 둘을 한 코드로 묶으면 소진 상태를 영원히 재시도하게 된다.
+     *
+     * <p>배치 락 둘도 마찬가지다. {@link #BATCH_LOCK_ACQUIRE_FAILED}(누가 쥐고 있다)는
+     * 즉시 재시도해도 같은 결과지만, {@link #BATCH_LOCK_STORE_ERROR}(저장소 장애)는 달라질 수 있다.
      */
     public boolean retryable() {
         return retryable;

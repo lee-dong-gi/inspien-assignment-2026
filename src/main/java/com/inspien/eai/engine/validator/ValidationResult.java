@@ -78,10 +78,48 @@ public record ValidationResult<P>(
     public record Skip(SkipReason reason, String key) {
     }
 
+    /**
+     * 건 단위 제외 사유.
+     *
+     * <h2>알고 있는 한계 (D-25)</h2>
+     * 이 열거형은 <b>엔진 패키지에 있으면서 도메인 어휘를 담고 있다.</b>
+     * {@code ORPHAN_ITEM} 은 주문 XML 의 사정이고 {@code MISSING_SHIPPING_ADDRESS} 는
+     * 배송의 사정이니, 인터페이스를 하나 추가할 때마다 엔진이 커진다.
+     * 원칙대로라면 사유를 문자열 코드로 열고 인터페이스별 열거형으로 내려야 한다
+     * ({@code Step} 을 프로토콜 단위로 유지한 것과 같은 이야기다).
+     *
+     * <p>그럼에도 열거형으로 남겨 둔 이유는 <b>이 이름들이 사실상 외부 계약</b>이기 때문이다.
+     * {@code skipDetail()} 을 거쳐 응답 JSON 과 실행 이력 파일에 그대로 실려 나간다.
+     * 열거형이면 상수를 바꿀 때 컴파일이 깨지지만, 문자열로 열어 두면 오타 하나가
+     * <b>조용히 새 사유 분류를 만들어</b> 집계를 둘로 쪼갠다. 그 보호를 잃는 대가가
+     * 지금 규모에서는 더 크다고 판단해, 한계를 기록하고 유지한다.
+     */
     public enum SkipReason {
+
+        // ── IF-ORD-001 (주문 생성 연계) ─────────────────────────────────
+
         /** 대응 HEADER 가 없는 ITEM */
         ORPHAN_ITEM,
         /** 대응 ITEM 이 없는 HEADER */
-        HEADER_WITHOUT_ITEM
+        HEADER_WITHOUT_ITEM,
+
+        // ── IF-SHP-001 (운송사 전송 배치) ───────────────────────────────
+
+        /**
+         * {@code ORDER_ID} 또는 {@code ITEM_ID} 가 비어 있는 행.
+         *
+         * <p>{@code SHIPMENT_TB} 에 넣을 수는 있다. 그러나 원본 주문을 가리키지 못하는
+         * 배송 지시는 운송사 입장에서 어떤 조치도 할 수 없는 데이터다.
+         */
+        MISSING_ORDER_KEY,
+
+        /**
+         * {@code ADDRESS} 가 비어 있는 행.
+         *
+         * <p>배송지 없는 배송 지시는 정보가 아니라 잡음이다. 그런데 이를 밀어 넣고
+         * {@code STATUS='Y'} 로 닫아 버리면 <b>다시 다룰 기회가 사라진다</b> —
+         * 이 환경은 append-only 여서 잘못 적재한 것을 되돌릴 수 없다.
+         */
+        MISSING_SHIPPING_ADDRESS
     }
 }

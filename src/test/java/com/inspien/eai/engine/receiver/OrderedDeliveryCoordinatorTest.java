@@ -196,8 +196,9 @@ class OrderedDeliveryCoordinatorTest {
     @DisplayName("보상 하나가 터져도 나머지 보상을 멈추지 않는다")
     void keepsCompensatingWhenOneCompensationBlowsUp() {
         TraceReceiver first = receiver(Step.RECEIVER_JDBC);
-        TraceReceiver second = new TraceReceiver(Step.STATUS_UPDATE,
-                new TraceDelivery(Step.STATUS_UPDATE, ROWS, null, new IllegalStateException("보상 폭발")),
+        // 두 번째 수신처의 Step 은 추적 라벨로만 쓰인다. 세 구간이 서로 구분되기만 하면 된다.
+        TraceReceiver second = new TraceReceiver(Step.MAPPER,
+                new TraceDelivery(Step.MAPPER, ROWS, null, new IllegalStateException("보상 폭발")),
                 null);
         TraceReceiver third = failingPrepare(Step.RECEIVER_FTP,
                 new RetryableException(EaiErrorCode.FTP_UPLOAD_ERROR, "업로드 거부됨"));
@@ -206,7 +207,7 @@ class OrderedDeliveryCoordinatorTest {
                 () -> coordinator.deliver(message(ROWS), List.of(first, second, third)));
 
         assertAll(
-                () -> assertTrue(trace.contains("STATUS_UPDATE:COMPENSATE")),
+                () -> assertTrue(trace.contains("MAPPER:COMPENSATE")),
                 () -> assertTrue(trace.contains("RECEIVER_JDBC:COMPENSATE"),
                         "앞 보상이 터졌다고 먼저 준비된 쪽을 건너뛰면 중간 상태가 남는다"));
     }
