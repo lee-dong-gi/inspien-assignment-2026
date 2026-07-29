@@ -10,7 +10,7 @@ package com.inspien.eai.engine.exception;
  *   1xxx  메시지 자체의 문제   (송신 시스템 / 데이터)
  *   2xxx  JDBC 구간
  *   3xxx  FTP 구간
- *   4xxx  공통 운영 (배치 제어 · 채번)
+ *   4xxx  공통 운영 (배치 제어 · 채번 · 전달 조율)
  * </pre>
  *
  * <p>{@link #retryable} 은 예외 처리 전략을 코드에 붙여 둔 것이다.
@@ -34,7 +34,26 @@ public enum EaiErrorCode {
 
     BATCH_LOCK_ACQUIRE_FAILED("EAI-4001", "배치 분산 락 획득 실패", false),
     ID_ISSUE_FAILED("EAI-4002", "채번 실패", true),
-    ID_SPACE_EXHAUSTED("EAI-4003", "채번 공간 소진 — 26,000개 한도 도달", false);
+    ID_SPACE_EXHAUSTED("EAI-4003", "채번 공간 소진 — 26,000개 한도 도달", false),
+
+    /**
+     * 전달 조율 자체의 오류 — 대상 시스템의 문제가 아니라 <b>우리 쪽 문제</b>다.
+     *
+     * <p>수신처가 하나도 등록되지 않은 조립 오류, 또는 Receiver 가
+     * {@link EaiException} 이 아닌 예외를 흘린 경우에 붙는다.
+     * 이것을 {@link #JDBC_EXEC_ERROR} 나 {@link #FTP_UPLOAD_ERROR} 로 뭉뚱그리면
+     * 운영자가 <b>엉뚱한 담당자에게 연락한다</b> — 대역을 나눈 이유 자체가 그것이다.
+     */
+    DELIVERY_ERROR("EAI-4004", "전달 조율 실패", false),
+
+    /**
+     * 파이프라인 실행 자체의 오류 — 어느 구간의 문제로도 분류되지 않는 예외.
+     *
+     * <p>{@code IntegrationFlow} 는 <b>예외를 밖으로 흘리지 않기로</b> 된 계약이므로
+     * 최종 catch 가 반드시 있어야 하고, 그 자리에도 코드가 필요하다.
+     * 여기에 걸리는 것은 사실상 <b>우리 코드의 버그</b>이므로 재시도 대상이 아니다.
+     */
+    FLOW_ERROR("EAI-4005", "파이프라인 실행 오류", false);
 
     private final String code;
     private final String message;

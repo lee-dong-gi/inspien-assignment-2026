@@ -14,7 +14,9 @@ import java.util.List;
  *       이미 준비된 것들을 <b>역순으로</b> {@link Delivery#compensate}</li>
  *   <li>등록된 순서대로 {@link Delivery#commit}</li>
  *   <li>확정 도중 실패하면 <b>아직 확정하지 않은</b> 것만 보상. 이미 확정된 것은 되돌리지 않는다</li>
- *   <li>첫 확정 이후의 실패는 {@code PARTIAL} 로 기록하고 수동 조치 대상으로 남긴다</li>
+ *   <li>첫 확정 이후의 실패는 예외가 아니라 {@link DeliveryOutcome#needsManualAction() 수동 조치 결과}로
+ *       돌려준다. 그 자리에서는 이미 되돌릴 수 없으므로 <b>실패로 보고하면 재요청을 부르고,
+ *       재요청은 곧 중복 적재다</b> (D-14)</li>
  * </ol>
  *
  * <p><b>역순 보상인 이유:</b> 나중에 준비된 것이 먼저 준비된 것에 의존할 수 있다.
@@ -31,10 +33,15 @@ public interface DeliveryCoordinator<T> {
     /**
      * 전 Receiver 에 전달하고 확정한다.
      *
-     * @return 확정된 건수
+     * <p><b>예외와 반환값의 경계가 곧 이 타입의 계약이다.</b>
+     * 예외는 "아무 데도 남지 않았다", 반환은 "어딘가에는 남았다" 를 뜻한다.
+     * 이 경계가 흐려지면 호출자는 재시도해도 되는지 판단할 수 없다.
+     *
+     * @return 확정 결과. 되돌릴 수 없는 자리에서 실패한 경우
+     *         {@link DeliveryOutcome#needsManualAction()} 가 참인 결과를 돌려준다
      * @throws com.inspien.eai.engine.exception.EaiException 전달 실패.
      *         이 예외가 던져졌을 때 <b>모든 대상 시스템이 원상 복구되었음</b>이 보장되거나,
      *         복구되지 못했다면 그 사실이 로그에 기록되어 있어야 한다
      */
-    int deliver(CanonicalMessage<List<T>> message, List<Receiver<T>> receivers);
+    DeliveryOutcome deliver(CanonicalMessage<List<T>> message, List<Receiver<T>> receivers);
 }
