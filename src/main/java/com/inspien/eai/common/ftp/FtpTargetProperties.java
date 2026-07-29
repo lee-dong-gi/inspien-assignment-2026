@@ -21,7 +21,7 @@ import java.time.Duration;
  *   <caption>인코딩 결정</caption>
  *   <tr><th>대상</th><th>값</th><th>근거</th></tr>
  *   <tr><td>파일 <b>이름</b></td><td>{@code UTF-8}</td>
- *       <td>서버가 {@code FEAT} 에서 UTF8 지원을 선언한다 (BOOT-001 실측)</td></tr>
+ *       <td>서버가 {@code FEAT} 에서 UTF8 지원을 선언하며, <b>실제 업로드로 보존을 확인했다</b></td></tr>
  *   <tr><td>파일 <b>내용</b></td><td>{@code EUC-KR}</td>
  *       <td>원본 XML 인코딩 계승 (D-07). 판단이 갈릴 수 있어 설정으로 분리했다</td></tr>
  * </table>
@@ -31,14 +31,21 @@ import java.time.Duration;
  * 전송되고, <b>예외는 나지 않는다.</b> 업로드 디렉터리에 있던 다른 지원자들의
  * {@code INSPIEN_???_...txt} 파일 53개가 그 결과다 (BOOT-001 실측).
  *
+ * <h2>임시 파일명 설정이 없는 이유 (D-21)</h2>
+ * 초판에는 {@code temp-suffix} 가 있었다. {@code .tmp} 로 올린 뒤 rename 으로 확정하는
+ * 설계였기 때문이다. 그런데 대상 서버가 rename 을 거부한다
+ * ({@code 451 Rename/move failure: Operation not permitted}).
+ * 업로드를 확정 단계로 옮기면서 임시 이름이라는 개념 자체가 사라졌으므로 설정도 제거했다 —
+ * <b>쓰이지 않는 설정을 남겨 두면 다음 사람이 그것이 동작한다고 믿는다.</b>
+ *
  * @param connectTimeout    제어 채널 연결 수립 한도
  * @param dataTimeout       데이터 채널 응답 대기 한도
  * @param controlEncoding   파일명이 실리는 제어 채널 인코딩. <b>반드시 명시</b>
  * @param contentEncoding   파일 내용 인코딩 (D-07)
  * @param passiveMode       방화벽/NAT 환경에서 active 는 데이터 채널이 막힌다. 기본 passive
- * @param tempSuffix        업로드 중 임시 파일명 꼬리. 확정 시 이 꼬리를 떼는 rename 이 곧 commit 이다
- * @param verifyUploadedName 업로드 후 리스팅으로 파일명 보존을 확인할지.
- *                           <b>끄지 않는 것을 권한다</b> — 인코딩 사고는 예외 없이 성공으로 보고된다
+ * @param verifyUploadedName 업로드 후 리스팅으로 <b>파일명과 크기</b> 보존을 확인할지.
+ *                           <b>끄지 않는 것을 권한다</b> — 인코딩 손상도 잘린 파일도
+ *                           예외 없이 성공으로 보고된다
  */
 @ConfigurationProperties(prefix = "inspien.ftp")
 public record FtpTargetProperties(
@@ -47,7 +54,6 @@ public record FtpTargetProperties(
         String controlEncoding,
         String contentEncoding,
         Boolean passiveMode,
-        String tempSuffix,
         Boolean verifyUploadedName
 ) {
 
@@ -66,9 +72,6 @@ public record FtpTargetProperties(
         }
         if (passiveMode == null) {
             passiveMode = Boolean.TRUE;
-        }
-        if (tempSuffix == null || tempSuffix.isBlank()) {
-            tempSuffix = ".tmp";
         }
         if (verifyUploadedName == null) {
             verifyUploadedName = Boolean.TRUE;

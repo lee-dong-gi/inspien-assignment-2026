@@ -6,9 +6,8 @@ import com.inspien.eai.common.secret.ApplicantName;
 import com.inspien.eai.engine.InterfaceId;
 import com.inspien.eai.engine.exception.EaiErrorCode;
 import com.inspien.eai.engine.exception.NonRetryableException;
-import com.inspien.eai.engine.exception.RetryableException;
-import com.inspien.eai.engine.log.Step;
 import com.inspien.eai.engine.message.CanonicalMessage;
+import com.inspien.eai.engine.log.Step;
 import com.inspien.eai.engine.message.MessageHeader;
 import com.inspien.eai.engine.receiver.Delivery;
 import com.inspien.eai.integration.order.target.OrderRecord;
@@ -20,7 +19,6 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -39,25 +37,35 @@ import static org.mockito.Mockito.verify;
 /**
  * 실제 FTP 서버 없이 검증한다.
  *
- * <p>이 Receiver 가 지켜야 할 성질은 전부 <b>호출 순서와 이름</b>의 문제다 —
- * 임시 이름으로 올리는가, 올린 뒤 다시 읽어 확인하는가, 실패하면 세션을 놓지 않는가.
- * 실서버로는 "파일명이 깨졌을 때 걸러내는가" 를 재현하기가 오히려 어렵다.
+ * <p>D-21 이후 이 Receiver 의 책임은 <b>준비</b>뿐이다 — 파일명을 정하고, 내용을 만들고,
+ * 세션을 연다. 업로드와 검증은 {@code PendingUploadDelivery} 가 확정 단계에서 한다.
+ * 그래서 여기서 확인할 가장 중요한 성질은 하나로 좁혀진다.
+ *
+ * <p><b>준비 단계는 서버에 아무것도 쓰지 않는다.</b> 대상 서버가 rename 도 삭제도 허용하지 않으므로
+ * (append-only — 실측), 준비 중에 원격에 무언가를 쓰는 순간 되돌릴 방법이 사라진다.
+ * 이 단언이 깨지는 변경은 곧 D-21 재설계를 무효로 만드는 변경이다.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("ReceiptFileReceiver — 영수증 파일 FTP 전송")
+@DisplayName("ReceiptFileReceiver — 영수증 파일 전송 준비")
 class ReceiptFileReceiverTest {
 
     private static final LocalDateTime OCCURRED_AT = LocalDateTime.of(2026, 7, 29, 5, 52, 27);
-    private static final String EXPECTED_FINAL = "INSPIEN_이동기_20260729055227.txt";
-    private static final String EXPECTED_TEMP = EXPECTED_FINAL + ".tmp";
+    private static final String EXPECTED_NAME = "INSPIEN_이동기_20260729055227.txt";
 
     @Mock
     private FtpClientFactory clientFactory;
     @Mock
     private FTPClient client;
 
+    /**
+     * 업로드 검증을 꺼 둔다.
+     *
+     * <p>파일명·크기 보존 검증은 {@code PendingUploadDeliveryTest} 가 이미 다룬다.
+     * 여기서까지 리스팅 대역을 배선하면 <b>Receiver 를 검증하는 테스트가 Delivery 의 사정에
+     * 묶여</b> 확정 로직을 바꿀 때마다 함께 깨진다.
+     */
     private final FtpTargetProperties properties = new FtpTargetProperties(
-            null, null, "UTF-8", "EUC-KR", true, ".tmp", true);
+            null, null, "UTF-8", "EUC-KR", true, false);
 
     private ReceiptFileReceiver receiver() {
         return new ReceiptFileReceiver(clientFactory, properties, new ApplicantName("이동기"));
@@ -70,27 +78,46 @@ class ReceiptFileReceiverTest {
     }
 
     @Test
-    @DisplayName("최종 파일명이 아니라 .tmp 로 올린다 — 확정 전까지는 존재하지 않는 것과 같아야 한다")
-    void uploadsWithTemporaryName() throws Exception {
-        wireSuccessfulUpload();
+    @DisplayName("준비 단계는 서버에 아무것도 쓰지 않는다 — D-21 의 핵심")
+    void prepareWritesNothingToServer() throws Exception {
+        given(clientFactory.open()).willReturn(client);
 
         Delivery delivery = receiver().prepare(message(records(2)));
+
+        assertAll(
+                () -> assertEquals(2, delivery.count()),
+                () -> verify(client, never()).storeFile(anyString(), any(InputStream.class)),
+                () -> verify(client, never()).rename(anyString(), anyString()),
+                () -> verify(client, never()).deleteFile(anyString()),
+                // 세션은 열려 있어야 한다. 확정 단계에서 이 커넥션으로 업로드한다.
+                () -> verify(client, never()).disconnect());
+    }
+
+    @Test
+    @DisplayName("업로드는 확정 단계에서 최종 파일명으로 일어난다 — 임시 이름을 쓰지 않는다")
+    void commitUploadsWithFinalName() throws Exception {
+        given(clientFactory.open()).willReturn(client);
+        given(client.storeFile(anyString(), any(InputStream.class))).willReturn(true);
+
+        receiver().prepare(message(records(2))).commit();
 
         ArgumentCaptor<String> name = ArgumentCaptor.forClass(String.class);
         verify(client).storeFile(name.capture(), any(InputStream.class));
 
         assertAll(
-                () -> assertEquals(EXPECTED_TEMP, name.getValue()),
-                () -> assertEquals(2, delivery.count()),
+                () -> assertEquals(EXPECTED_NAME, name.getValue()),
+                () -> assertTrue(!name.getValue().endsWith(".tmp"),
+                        "이 서버는 rename 을 거부한다 — 임시 이름으로 올리면 확정할 방법이 없다"),
                 () -> verify(client, never()).rename(anyString(), anyString()));
     }
 
     @Test
     @DisplayName("파일명 시각은 인터페이스 실행 시작 시각이다 — Receiver 에서 다시 찍지 않는다")
     void usesInterfaceStartTimeForTimestamp() throws Exception {
-        wireSuccessfulUpload();
+        given(clientFactory.open()).willReturn(client);
+        given(client.storeFile(anyString(), any(InputStream.class))).willReturn(true);
 
-        receiver().prepare(message(records(1)));
+        receiver().prepare(message(records(1))).commit();
 
         ArgumentCaptor<String> name = ArgumentCaptor.forClass(String.class);
         verify(client).storeFile(name.capture(), any(InputStream.class));
@@ -100,64 +127,7 @@ class ReceiptFileReceiverTest {
     }
 
     @Test
-    @DisplayName("업로드 후 리스팅해 파일명 보존을 확인한다")
-    void verifiesUploadedNameByListing() throws Exception {
-        wireSuccessfulUpload();
-
-        receiver().prepare(message(records(1)));
-
-        verify(client).listNames();
-    }
-
-    @Test
-    @DisplayName("파일명이 '?' 로 치환되면 EAI-3004 로 끊고 임시 파일까지 지운다")
-    void detectsSilentlyCorruptedFileName() throws Exception {
-        given(clientFactory.open()).willReturn(client);
-        given(client.storeFile(anyString(), any(InputStream.class))).willReturn(true);
-        given(client.isConnected()).willReturn(true);
-        // 다른 지원자들의 파일이 이 꼴이다 — 서버는 정상 응답을 줬다.
-        given(client.listNames()).willReturn(new String[]{"INSPIEN_???_20260729055227.txt.tmp"});
-
-        NonRetryableException e = assertThrows(NonRetryableException.class,
-                () -> receiver().prepare(message(records(1))));
-
-        assertAll(
-                () -> assertEquals(EaiErrorCode.FTP_ENCODING_ERROR, e.errorCode()),
-                () -> assertTrue(e.getMessage().contains("UTF-8"), "어떤 인코딩으로 보냈는지 알려야 한다"),
-                () -> verify(client).deleteFile(EXPECTED_TEMP),
-                () -> verify(client).disconnect());
-    }
-
-    @Test
-    @DisplayName("업로드 거부는 재시도 가능(EAI-3002)으로 분류하고 세션을 반납한다")
-    void classifiesUploadRejectionAsRetryable() throws Exception {
-        given(clientFactory.open()).willReturn(client);
-        given(client.storeFile(anyString(), any(InputStream.class))).willReturn(false);
-        given(client.isConnected()).willReturn(true);
-
-        RetryableException e = assertThrows(RetryableException.class,
-                () -> receiver().prepare(message(records(1))));
-
-        assertAll(
-                () -> assertEquals(EaiErrorCode.FTP_UPLOAD_ERROR, e.errorCode()),
-                () -> verify(client).disconnect());
-    }
-
-    @Test
-    @DisplayName("리스팅이 실패하면 확정하지 않는다 — 확인하지 못한 것은 확인된 것이 아니다")
-    void failsWhenVerificationImpossible() throws Exception {
-        given(clientFactory.open()).willReturn(client);
-        given(client.storeFile(anyString(), any(InputStream.class))).willReturn(true);
-        given(client.listNames()).willThrow(new IOException("data connection reset"));
-
-        RetryableException e = assertThrows(RetryableException.class,
-                () -> receiver().prepare(message(records(1))));
-
-        assertEquals(EaiErrorCode.FTP_UPLOAD_ERROR, e.errorCode());
-    }
-
-    @Test
-    @DisplayName("인코딩 불가 문자가 있으면 연결조차 하지 않는다 — 잘린 파일을 남기지 않기 위해서다")
+    @DisplayName("인코딩 불가 문자가 있으면 연결조차 하지 않는다 — 세션을 열어 놓고 실패하지 않는다")
     void validatesContentBeforeOpeningSession() {
         OrderRecord broken = new OrderRecord(
                 "A113", "KEY00001", "USER1", "ITEM1", "홍길동", "서울", "청바지😀", "21000", "N");
@@ -167,11 +137,12 @@ class ReceiptFileReceiverTest {
 
         assertAll(
                 () -> assertEquals(EaiErrorCode.FTP_ENCODING_ERROR, e.errorCode()),
+                // 동시 접속 5 제한 아래에서, 실패할 것이 뻔한 요청에 세션을 쓰면 안 된다.
                 () -> verify(clientFactory, never()).open());
     }
 
     @Test
-    @DisplayName("0건이면 빈 영수증을 만들지 않는다")
+    @DisplayName("0건이면 빈 영수증을 만들지 않고 세션도 열지 않는다")
     void emptyPayloadUploadsNothing() {
         Delivery delivery = receiver().prepare(message(List.of()));
 
@@ -184,12 +155,6 @@ class ReceiptFileReceiverTest {
     }
 
     // ── 대역 배선 ───────────────────────────────────────────────
-
-    private void wireSuccessfulUpload() throws Exception {
-        given(clientFactory.open()).willReturn(client);
-        given(client.storeFile(anyString(), any(InputStream.class))).willReturn(true);
-        given(client.listNames()).willReturn(new String[]{EXPECTED_TEMP});
-    }
 
     private CanonicalMessage<List<OrderRecord>> message(List<OrderRecord> records) {
         return new CanonicalMessage<>(

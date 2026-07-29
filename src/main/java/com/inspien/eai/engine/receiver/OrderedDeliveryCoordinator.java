@@ -21,9 +21,9 @@ import java.util.stream.Collectors;
  *
  * <pre>
  *   ① prepare(JDBC)  INSERT, commit 보류        실패 → 던진다 (Receiver 가 스스로 정리했다)
- *   ② prepare(FTP)   .tmp 업로드                실패 → ① 롤백 후 던진다
- *   ③ commit(JDBC)   DB COMMIT                  실패 → ② 의 .tmp 삭제 후 던진다
- *   ④ commit(FTP)    .tmp → 최종명 rename       실패 → <b>되돌리지 않는다.</b> 수동 조치 결과 반환
+ *   ② prepare(FTP)   접속 + 콘텐츠 생성        실패 → ① 롤백 후 던진다
+ *   ③ commit(JDBC)   DB COMMIT                  실패 → ② 보상(서버에 쓴 것이 없다) 후 던진다
+ *   ④ commit(FTP)    최종 파일명으로 STOR      실패 → <b>되돌리지 않는다.</b> 수동 조치 결과 반환
  * </pre>
  *
  * <h2>이 클래스가 하는 일은 순서를 지키는 것뿐이다</h2>
@@ -45,7 +45,7 @@ import java.util.stream.Collectors;
  * </ul>
  * ④ 를 예외로 던지면 호출자는 {@code FAIL} 로 응답하고, 응답받은 쪽은 재요청하며,
  * 그 재요청이 <b>이미 적재된 63행을 한 번 더 넣는다.</b> 필요한 조치는 재실행이 아니라
- * 파일명 변경 하나이므로 사람에게 넘긴다 (D-14).
+ * 파일 하나를 올리는 일이므로 사람에게 넘긴다 (D-14).
  *
  * <h2>실행 이력에 준비와 확정을 따로 남긴다</h2>
  * 수신처마다 {@code PREPARE} 1줄, {@code COMMIT} 1줄이 남는다. 합쳐 1줄로 줄이면
@@ -55,8 +55,8 @@ import java.util.stream.Collectors;
  *
  * <h2>남는 한계 — 숨기지 않는다</h2>
  * {@link Delivery#compensate()} 는 반환값이 없으므로 <b>조율자는 보상의 성패를 알 수 없다.</b>
- * 보상 실패는 각 {@code Delivery} 가 {@code EAI-2002} / {@code EAI-3003} 으로 애플리케이션 로그에
- * 남긴다. 반환값을 받도록 계약을 바꾸면 조율자가 집계할 수 있지만, 보상은 이미 다른 실패를
+ * 보상 실패는 각 {@code Delivery} 가 {@code EAI-2002} 로 애플리케이션 로그에
+ * 남긴다 (FTP 쪽은 D-21 이후 보상할 원격 상태가 없어 실패할 것도 없다). 반환값을 받도록 계약을 바꾸면 조율자가 집계할 수 있지만, 보상은 이미 다른 실패를
  * 처리하는 중에 불리므로 <b>그 결과로 다시 분기하는 코드</b>는 실패 경로를 한 겹 더 복잡하게 만든다.
  * 지금 규모에서는 기록으로 충분하다고 판단했다.
  *

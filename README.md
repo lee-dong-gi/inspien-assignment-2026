@@ -130,6 +130,31 @@ gradlew probeRun
 - 커밋 전 확인: `git status --ignored`
 - 로그에 개인정보(`NAME`, `ADDRESS`)를 남길 때는 마스킹한다
 
+## FTP 업로드 디렉터리 참고
+
+영수증 파일은 과제 제공 FTP 서버의 `/Recruit/2026` 에 올라간다. 이 디렉터리에
+`INSPIEN_이동기_20260730015842.txt.tmp` 가 하나 남아 있다.
+
+초판은 `.tmp` 로 업로드한 뒤 rename 으로 확정하는 보상 트랜잭션이었고, 위 파일은
+그 방식으로 실행했던 시점의 흔적이다. 실측 결과 서버가 rename 과 삭제를 모두 거부해
+회수할 수 없다.
+
+```
+RNFR  →  451 Rename/move failure: Operation not permitted
+DELE  →  550 Could not delete ...: Operation not permitted
+```
+
+같은 원칙이 Oracle 에도 걸려 있다 (`DELETE` 권한 없음 — `ORA-01031`).
+지원자 전원이 같은 테이블과 같은 디렉터리를 공유하므로 서로의 제출물을 건드리지
+못하게 막아 둔 구성으로 보인다 — **대상 환경 전체가 append-only** 이다 (정의서 B10).
+
+이 제약 때문에 업로드를 **준비 단계에서 확정 단계로 옮겼다** (설계 결정 D-21).
+준비 단계는 접속과 내용 생성까지만 하고 서버에 아무것도 쓰지 않으며,
+확정 시점에 **최종 파일명으로 한 번 업로드**한다. 되돌릴 수 없는 환경에서는
+보상 로직을 정교하게 짜는 것이 아니라 **되돌릴 상태를 만들지 않는 쪽**으로 가야 한다.
+
+> **확인 대상 파일은 `.tmp` 가 붙지 않은 `INSPIEN_{지원자명}_{yyyyMMddHHmmss}.txt` 이다.**
+
 ## 진행 현황
 
 - [x] 프로젝트 뼈대 / 로컬 인프라
@@ -140,7 +165,8 @@ gradlew probeRun
 - [x] 채번 (Redis `INCRBY` 전량 선점 + `MAX(ORDER_ID)` 시딩)
 - [x] IF-ORD-001 — XML 파서 · Validator · Mapper
 - [x] IF-ORD-001 — JDBC Receiver (`ORDER_TB`, 커밋 보류)
-- [x] IF-ORD-001 — FTP Receiver (영수증 파일, 임시명 업로드 + 파일명 검증)
-- [ ] IF-ORD-001 — DeliveryCoordinator · IntegrationFlow · 주문 REST API
+- [x] IF-ORD-001 — FTP Receiver (영수증 파일, 최종명 업로드 + 이름·크기 검증)
+- [x] IF-ORD-001 — DeliveryCoordinator · IntegrationFlow · 주문 REST API
+- [x] IF-ORD-001 — **end-to-end 검증 완료** (63행 적재 / 11건 스킵 / 영수증 전송)
 - [ ] IF-SHP-001 운송사 전송 배치
 - [ ] To-Be 아키텍처 다이어그램 · 발표 자료

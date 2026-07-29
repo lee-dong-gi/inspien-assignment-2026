@@ -143,7 +143,7 @@ class OrderedDeliveryCoordinatorTest {
     void returnsManualActionInsteadOfThrowingAfterFirstCommit() {
         TraceReceiver jdbc = receiver(Step.RECEIVER_JDBC);
         TraceReceiver ftp = failingCommit(Step.RECEIVER_FTP,
-                new NonRetryableException(EaiErrorCode.FTP_RENAME_FAILED, "서버가 rename 을 거부했다"));
+                new NonRetryableException(EaiErrorCode.FTP_COMMIT_FAILED, "서버가 업로드를 거부했다"));
 
         DeliveryOutcome outcome = coordinator.deliver(message(ROWS), List.of(jdbc, ftp));
 
@@ -156,7 +156,7 @@ class OrderedDeliveryCoordinatorTest {
                 // 확정된 DB 트랜잭션을 되돌리려 들면 멀쩡한 주문 63건이 사라진다.
                 () -> assertFalse(trace.contains("RECEIVER_JDBC:COMPENSATE")),
                 () -> assertTrue(outcome.needsManualAction()),
-                () -> assertEquals(EaiErrorCode.FTP_RENAME_FAILED, outcome.manualActionCode()),
+                () -> assertEquals(EaiErrorCode.FTP_COMMIT_FAILED, outcome.manualActionCode()),
                 // 적재된 건수를 0 으로 낮춰 보고하면 정합성이 깨진 사실 자체가 숨겨진다.
                 () -> assertEquals(ROWS, outcome.count()),
                 () -> assertEquals(1, outcome.confirmedTargets()),

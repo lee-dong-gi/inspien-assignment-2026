@@ -38,9 +38,9 @@ public class FtpTargetConfig {
 
     @Bean
     public FtpClientFactory ftpClientFactory(FtpConnectionSettings settings, FtpTargetProperties properties) {
-        log.info("[FTP] 전송 대상 설정 — {}, 파일명={}, 내용={}, passive={}, 임시꼬리={}",
+        log.info("[FTP] 전송 대상 설정 — {}, 파일명={}, 내용={}, passive={}, 업로드검증={}",
                 settings, properties.controlEncoding(), properties.contentEncoding(),
-                properties.passiveMode(), properties.tempSuffix());
+                properties.passiveMode(), properties.verifyUploadedName());
         return new FtpClientFactory(settings, properties);
     }
 

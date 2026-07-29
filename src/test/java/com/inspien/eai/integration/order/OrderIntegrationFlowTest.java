@@ -166,18 +166,18 @@ class OrderIntegrationFlowTest {
     // ------------------------------------------------------------------ 되돌릴 수 없는 실패
 
     @Test
-    @DisplayName("확정 후 FTP rename 이 실패하면 FAIL 이 아니라 PARTIAL + 에러 코드다 — D-14")
+    @DisplayName("확정 후 FTP 업로드가 실패하면 FAIL 이 아니라 PARTIAL + 에러 코드다 — D-14")
     void reportsPartialWhenDeliveryNeedsManualAction() {
         Receiver<OrderRecord> jdbc = receiver(Step.RECEIVER_JDBC, null);
         Receiver<OrderRecord> ftp = receiver(Step.RECEIVER_FTP,
-                new NonRetryableException(EaiErrorCode.FTP_RENAME_FAILED, "서버가 rename 을 거부했다"));
+                new NonRetryableException(EaiErrorCode.FTP_COMMIT_FAILED, "서버가 업로드를 거부했다"));
 
         ProcessResult result = flow(new OrderedDeliveryCoordinator<>(interfaceLogger), List.of(jdbc, ftp))
                 .execute(euckr(ONE_ORDER));
 
         assertAll(
                 () -> assertEquals(ProcessResult.Outcome.PARTIAL, result.outcome()),
-                () -> assertEquals(EaiErrorCode.FTP_RENAME_FAILED, result.errorCode()),
+                () -> assertEquals(EaiErrorCode.FTP_COMMIT_FAILED, result.errorCode()),
                 // FAIL 로 답하면 호출자가 재요청하고, 그 재요청이 곧 중복 적재다.
                 () -> assertEquals(1, result.processed()),
                 () -> assertFalse(trace.contains("RECEIVER_JDBC:COMPENSATE"),

@@ -21,15 +21,25 @@ import com.inspien.eai.engine.exception.EaiErrorCode;
  *
  * <pre>
  *   JdbcDelivery : prepare = INSERT 후 commit 보류  / commit = DB commit  / compensate = rollback
- *   FtpDelivery  : prepare = .tmp 파일명으로 업로드 / commit = 최종명 rename / compensate = .tmp 삭제
+ *   FtpDelivery  : prepare = 접속 + 콘텐츠 생성 / commit = STOR / compensate = <b>할 일 없음</b> (D-21)
  * </pre>
  *
  * 2PC 의 흉내가 아니라, <b>실무에서 실제로 쓰는 보상 트랜잭션</b>을 타입으로 고정한 것이다.
  * 되돌리는 방법을 각 Receiver 가 스스로 알고 있으므로, 조율자는 순서만 책임진다.
  *
+ * <h2>준비 단계에서 쓰기를 하지 않는 수가 있다 (D-21)</h2>
+ * FTP 쪽 보상이 비어 있는 것은 게으름이 아니라 <b>설계의 결과</b>다. 대상 서버가
+ * rename 도 삭제도 허용하지 않아(append-only — 실측), 준비 단계에 원격에 무언가를 쓰면
+ * <b>되돌릴 방법이 없는 상태</b>가 만들어진다. 그래서 쓰기를 확정으로 미루고
+ * 보상할 것 자체를 없앴다.
+ *
+ * <p>일반화하면 이렇다 — <b>보상 트랜잭션을 설계할 때 가장 먼저 물을 것은
+ * "보상이 이 환경에서 가능한가" 이다.</b> 불가능하다면 보상 로직을 정교하게 짜는 대신
+ * 준비 단계의 부수효과를 없애는 쪽으로 가야 한다.
+ *
  * <h2>남는 한계 — 정직하게 기록한다</h2>
- * 마지막 확정 이후의 실패는 되돌릴 수 없다. 예컨대 DB commit 이 끝난 뒤 FTP rename 이 실패하면
- * 데이터 자체는 유효하므로 롤백하지 않고, {@link EaiErrorCode#FTP_COMPENSATION_FAILED} 로
+ * 마지막 확정 이후의 실패는 되돌릴 수 없다. 예컨대 DB commit 이 끝난 뒤 FTP 업로드가 실패하면
+ * 데이터 자체는 유효하므로 롤백하지 않고, {@link EaiErrorCode#FTP_COMMIT_FAILED} 로
  * <b>수동 조치 대상</b>임을 남긴다. 완벽한 원자성은 달성되지 않으며, 그 사실을 숨기지 않는 것이
  * 조용히 성공으로 보고하는 것보다 낫다.
  */
