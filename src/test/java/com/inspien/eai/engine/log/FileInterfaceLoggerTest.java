@@ -144,7 +144,7 @@ class FileInterfaceLoggerTest {
     @Test
     @DisplayName("END 줄에 최종 집계와 스킵 사유를 남긴다")
     void completionLineCarriesTotals() {
-        logger.complete(header, ProcessResult.partial(63, 11,
+        logger.complete(header, ProcessResult.partial(header.txId(), 63, 11,
                 Map.of("ORPHAN_ITEM", 7, "HEADER_WITHOUT_ITEM", 4)));
 
         String[] columns = columnsOf(lines().get(0));
@@ -179,7 +179,7 @@ class FileInterfaceLoggerTest {
         logger.begin(header, null);
         assertNotNull(MDC.get(TxContext.TX_ID));
 
-        logger.complete(header, ProcessResult.success(63));
+        logger.complete(header, ProcessResult.success(header.txId(), 63));
 
         assertAll(
                 () -> assertNull(MDC.get(TxContext.TX_ID)),
@@ -199,7 +199,7 @@ class FileInterfaceLoggerTest {
         try (InterfaceLogger.StepScope scope = logger.step(header, Step.MAPPER)) {
             scope.success(63);
         }
-        logger.complete(header, ProcessResult.success(63));
+        logger.complete(header, ProcessResult.success(header.txId(), 63));
 
         String all = String.join("\n", lines());
 
