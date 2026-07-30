@@ -81,6 +81,45 @@ inspien:
     # 잘린 파일이 최종 이름을 달고 남고, 이름만 보면 그것이 통과한다.
     verify-uploaded-name: true
 
+  # ── IF-SHP-001 운송사 전송 배치 (정의서 4.5) ────────────────────────────────
+  batch:
+    shipment:
+      # 스케줄러 자동 실행 스위치.
+      #
+      # ★ false 로 두어도 수동 트리거(POST /api/v1/shipments/batch)는 그대로 동작한다.
+      #   조립을 ShipmentFlowConfig(파이프라인) / ShipmentScheduleConfig(스케줄러)로
+      #   나눈 이유가 이것이다.
+      #
+      # ★ 대상 환경은 append-only 다 — DELETE 권한이 없어 적재를 되돌릴 수 없고,
+      #   테이블을 지원자 전원이 공유한다. 시연 직전에 상태를 고정해 두고 원하는 순간
+      #   한 번만 돌리려면 이 값을 false 로 두고 수동 트리거를 쓴다.
+      enabled: true
+
+      # ★ 이 두 값은 반드시 ISO-8601(PT5M) 로 쓴다.
+      #
+      #   @Scheduled(fixedDelayString) 은 @ConfigurationProperties 와 파싱 규칙이 다르다.
+      #   스프링의 ScheduledAnnotationBeanPostProcessor 는 'P' 로 시작하는 ISO-8601 이거나
+      #   순수 숫자(밀리초)만 받는다. '5m' 같은 축약 표기는 @ConfigurationProperties 에서는
+      #   통하지만 여기서는 Long.parseLong 에서 터져 기동이 실패한다.
+      #   같은 프로퍼티를 두 경로가 읽으므로 둘 다 만족하는 표기를 쓴다.
+      fixed-delay: PT5M         # 5분. fixedDelay = 이전 수행이 '끝난' 뒤부터 센다
+      initial-delay: PT1M       # 기동 직후 배치가 도는 것을 막는다 (기동 로그와 섞이면 시연에서 설명이 어렵다)
+
+      # 청크. 전체를 메모리에 올리지 않는다. Oracle 이므로 FETCH FIRST ? ROWS ONLY.
+      chunk-size: 100
+      # 한 실행의 청크 상한 = 수행 시간의 상한. 이 값이 있어야 lock-ttl 을
+      # 넘기지 않는다고 말할 수 있다. 남은 일은 다음 주기가 이어받는다.
+      max-chunks-per-run: 50
+
+      # 분산 락. 인터페이스마다 키가 달라야 한다 —
+      # 하나를 공유하면 서로 무관한 배치가 서로를 막는다.
+      lock-key: eai:lock:if-shp-001
+      # ★ fixed-delay 보다 짧아야 한다 (ShipmentBatchProperties 가 기동 시 검증한다).
+      #   길게 두면 프로세스가 비정상 종료해 락을 반납하지 못했을 때 남은 TTL 동안
+      #   배치가 한 주기 이상 통째로 멈춘다. 짧게 두면 손실은 최대 한 주기로 제한되고,
+      #   수행이 TTL 을 넘긴 경우는 반납 시점의 토큰 불일치로 검출된다.
+      lock-ttl: PT4M
+
   bootstrap:
     # 평상시 실행에는 관여하지 않는다. bootstrap 프로파일에서만 true 로 켜진다.
     enabled: false
