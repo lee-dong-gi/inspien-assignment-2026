@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="490" viewBox="0 0 680 490" role="img">
+<title>As-Is 에서 To-Be 로의 변화</title>
+<desc>As-Is 에서는 쇼핑몰이 회계와 운송으로 데이터를 수기 전달한다. To-Be 에서는 가운데 INSPIEN EAI 엔진이 들어와 주문자 요청을 받아 세 시스템으로 연계하며, 세 시스템은 그대로 남아 있다.</desc>
+<style>
+text{font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+.ts{font-size:12px;fill:#5f5e5a}
+.th{font-size:14px;font-weight:500;fill:#2c2c2a}
+rect{stroke-width:.5}
+.gray rect{fill:#f1efe8;stroke:#5f5e5a}
+.gray .ts,.gray .th{fill:#2c2c2a}
+.purple rect{fill:#eeedfe;stroke:#534ab7}
+.purple .ts,.purple .th{fill:#3c3489}
+.teal rect{fill:#e1f5ee;stroke:#0f6e56}
+.teal .ts,.teal .th{fill:#085041}
+path,line{fill:none}
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+<rect x="0" y="0" width="680" height="490" fill="#ffffff" stroke="none"/>
+
+<text class="th" x="40" y="58">As-Is — 인터페이스가 사람이다</text>
+<g class="gray"><rect x="40" y="96" width="120" height="44" rx="8"/><text class="ts" x="100" y="118" text-anchor="middle" dominant-baseline="central">주문자</text></g>
+<g class="gray"><rect x="216" y="96" width="150" height="44" rx="8"/><text class="ts" x="291" y="118" text-anchor="middle" dominant-baseline="central">쇼핑몰 주문 관리</text></g>
+<g class="gray"><rect x="456" y="68" width="154" height="44" rx="8"/><text class="ts" x="533" y="90" text-anchor="middle" dominant-baseline="central">회계 담당자</text></g>
+<g class="gray"><rect x="456" y="124" width="154" height="44" rx="8"/><text class="ts" x="533" y="146" text-anchor="middle" dominant-baseline="central">운송회사</text></g>
+<line x1="160" y1="118" x2="210" y2="118" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M366 112C400 112 416 90 450 90" stroke="#5f5e5a" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<path d="M366 124C400 124 416 146 450 146" stroke="#5f5e5a" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrow)"/>
+<text class="ts" x="408" y="192" text-anchor="middle">수기 전달 · 누락 · 지연</text>
+
+<line x1="24" y1="216" x2="656" y2="216" stroke="#d3d1c7" stroke-width="0.5"/>
+
+<text class="th" x="40" y="244">To-Be — 가운데가 번역한다</text>
+<g class="purple"><rect x="40" y="296" width="120" height="44" rx="8"/><text class="ts" x="100" y="318" text-anchor="middle" dominant-baseline="central">주문자</text></g>
+<g class="gray"><rect x="220" y="268" width="170" height="100" rx="12"/><text class="th" x="305" y="306" text-anchor="middle" dominant-baseline="central">INSPIEN EAI 엔진</text><text class="ts" x="305" y="330" text-anchor="middle" dominant-baseline="central">① ~ ⑤ 파이프라인</text></g>
+<g class="gray"><rect x="456" y="248" width="154" height="56" rx="8"/><text class="ts" x="533" y="266" text-anchor="middle" dominant-baseline="central">ORDER_TB</text><text class="ts" x="533" y="286" text-anchor="middle" dominant-baseline="central">두 인터페이스가 공유</text></g>
+<g class="purple"><rect x="456" y="316" width="154" height="44" rx="8"/><text class="ts" x="533" y="338" text-anchor="middle" dominant-baseline="central">회계 담당자 · FTP</text></g>
+<g class="teal"><rect x="456" y="372" width="154" height="44" rx="8"/><text class="ts" x="533" y="394" text-anchor="middle" dominant-baseline="central">SHIPMENT_TB</text></g>
+<path d="M160 318L214 318" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M390 282C416 282 428 270 450 270" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M450 292C428 292 418 300 394 304" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+<path d="M390 326C416 326 428 338 450 338" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
+<path d="M390 352C420 352 430 394 450 394" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+
+<line x1="40" y1="450" x2="62" y2="450" stroke="#7F77DD" stroke-width="1.5"/>
+<text class="ts" x="70" y="454">IF-ORD-001 sync</text>
+<line x1="216" y1="450" x2="238" y2="450" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3"/>
+<text class="ts" x="246" y="454">IF-SHP-001 async 5분</text>
+</svg>
