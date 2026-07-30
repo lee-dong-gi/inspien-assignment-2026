@@ -223,11 +223,15 @@ public class ShipmentIntegrationFlow implements IntegrationFlow<BatchTrigger> {
                 // 커서는 '처리한 마지막 행' 이 아니라 '읽은 마지막 행' 으로 전진한다.
                 // 스킵된 꼬리를 지나치지 않으면 다음 청크가 같은 행을 다시 읽는다.
                 boolean mayHaveMore = source.mayHaveMore();
-                cursor = PollCursor.after(source.lastReadOrderId());
+                String lastReadOrderId = source.lastReadOrderId();
 
                 if (!mayHaveMore) {
                     break;
                 }
+                // 커서를 만드는 것은 다음 청크를 읽을 때뿐이다. 마지막 덩어리에서 만들면
+                // 쓰이지도 않는 값 때문에 꼬리 행의 ORDER_ID 가 비었을 때 종료 직전에 터진다.
+                // 지금은 NOT NULL 이라 일어나지 않지만, 그 전제에 기댈 이유가 없다.
+                cursor = PollCursor.after(lastReadOrderId);
                 if (chunk == maxChunks) {
                     log.info("[IF-SHP-001] 청크 상한({})에 도달했다 — 남은 미전송 주문은 다음 주기가 처리한다",
                             maxChunks);
