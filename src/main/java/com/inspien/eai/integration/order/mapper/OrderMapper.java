@@ -8,6 +8,7 @@ import com.inspien.eai.integration.order.source.OrderSourceMessage;
 import com.inspien.eai.integration.order.source.SourceHeader;
 import com.inspien.eai.integration.order.source.SourceItem;
 import com.inspien.eai.integration.order.target.OrderRecord;
+import com.inspien.eai.integration.order.target.OrderStatus;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -60,8 +61,12 @@ public class OrderMapper implements Mapper<OrderSourceMessage, OrderRecord> {
      *
      * <p>샘플 15건은 모두 {@code N} 이라 실측상 차이는 없다. 그래도 명시적으로 덮어쓰는 이유는
      * "우연히 맞았다" 와 "보장했다" 가 다르기 때문이다.
+     *
+     * <p>값 자체는 {@link OrderStatus} 에서 가져온다. 이 컬럼은 IF-SHP-001 이 조회 조건과
+     * 갱신 값으로 함께 쓰는 <b>두 인터페이스의 접점</b>이므로, 리터럴을 각자 들고 있으면
+     * 한쪽만 바뀌었을 때 <b>배치가 조용히 0건을 처리한다.</b>
      */
-    public static final String STATUS_UNSENT = "N";
+    public static final String STATUS_UNSENT = OrderStatus.UNSENT.code();
 
     private final IdGenerator idGenerator;
     private final String applicantKey;
