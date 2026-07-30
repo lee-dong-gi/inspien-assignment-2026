@@ -1,5 +1,6 @@
 package com.inspien.eai.integration.order.receiver;
 
+import com.inspien.eai.common.jdbc.JdbcBatches;
 import com.inspien.eai.common.jdbc.JdbcErrorTranslator;
 import com.inspien.eai.common.jdbc.PendingCommitDelivery;
 import com.inspien.eai.common.jdbc.SqlIdentifiers;
@@ -16,7 +17,6 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.List;
 
 /**
@@ -119,6 +119,8 @@ public class OrderTbReceiver implements Receiver<OrderRecord> {
      *
      * <p>{@link #batchSize} 로 끊어 실행하는 것은 드라이버 측 버퍼가 무한정 커지는 것을 막기 위함이다.
      * 끊어도 <b>트랜잭션은 하나</b>이므로 중간에 실패하면 앞의 배치까지 함께 롤백된다.
+     *
+     * <p>배치 결과 판정은 {@link JdbcBatches} 가 한다 — 합산이 아니라 개수로 세는 이유는 그쪽 참조.
      */
     private void insertBatch(Connection connection, List<OrderRecord> records) throws SQLException {
         try (PreparedStatement statement = connection.prepareStatement(insertSql)) {
@@ -130,12 +132,12 @@ public class OrderTbReceiver implements Receiver<OrderRecord> {
                 bind(statement, record);
                 statement.addBatch();
                 if (++pending >= batchSize) {
-                    applied += executeBatch(statement, pending);
+                    applied += JdbcBatches.execute(statement, table, pending);
                     pending = 0;
                 }
             }
             if (pending > 0) {
-                applied += executeBatch(statement, pending);
+                applied += JdbcBatches.execute(statement, table, pending);
             }
 
             if (applied != records.size()) {
@@ -143,31 +145,6 @@ public class OrderTbReceiver implements Receiver<OrderRecord> {
                         "[" + table + "] 적재 건수 불일치 — 요청 " + records.size() + "행, 반영 " + applied + "행");
             }
         }
-    }
-
-    /**
-     * 배치 실행 결과 검증.
-     *
-     * <p>반환값을 <b>합산하지 않고 개수를 센다.</b> JDBC 명세상 배치 결과는 영향 행 수일 수도 있지만
-     * {@link Statement#SUCCESS_NO_INFO}({@code -2}) 일 수도 있다 — 드라이버가 "성공했지만 몇 행인지는
-     * 모른다" 고 답하는 정상 응답이다. 합산하면 이 값이 음수로 섞여 들어가 멀쩡한 적재를
-     * 실패로 판정한다.
-     */
-    private int executeBatch(PreparedStatement statement, int expected) throws SQLException {
-        int[] results = statement.executeBatch();
-
-        if (results.length != expected) {
-            throw new NonRetryableException(EaiErrorCode.JDBC_EXEC_ERROR,
-                    "[" + table + "] 배치 결과 개수가 요청과 다르다 — 요청 " + expected + ", 응답 " + results.length);
-        }
-        for (int i = 0; i < results.length; i++) {
-            if (results[i] == Statement.EXECUTE_FAILED) {
-                // 값은 담지 않는다. 배치 내 위치만으로 원본 레코드를 찾아갈 수 있다.
-                throw new NonRetryableException(EaiErrorCode.JDBC_EXEC_ERROR,
-                        "[" + table + "] 배치 내 " + i + "번째 행이 실패했다");
-            }
-        }
-        return results.length;
     }
 
     /**

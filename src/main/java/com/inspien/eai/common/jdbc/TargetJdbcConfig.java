@@ -70,7 +70,7 @@ public class TargetJdbcConfig {
 
         // 풀 기본값은 autoCommit=true 로 둔다. 트랜잭션이 필요한 쪽(Receiver)이
         // 빌린 뒤 명시적으로 끄고 반납 전에 되돌린다. 반대로 풀 기본값을 false 로 두면
-        // 단순 조회(시딩 등)까지 트랜잭션을 열어 놓고 닫지 않는 상태가 생긴다.
+        // 단순 조회(시딩·폴링 등)까지 트랜잭션을 열어 놓고 닫지 않는 상태가 생긴다.
         config.setAutoCommit(true);
 
         // jdbcUrl 방식에서도 dataSourceProperties 는 DriverManager 로 그대로 전달된다.
@@ -92,14 +92,28 @@ public class TargetJdbcConfig {
      *
      * <p>적재(INSERT)에는 쓰지 않는다. {@link JdbcTemplate} 은 메서드 하나가 끝나면
      * 커넥션을 반납하므로, <b>확정을 보류한 채 커넥션을 붙잡아야 하는</b> 보상 트랜잭션과
-     * 맞지 않는다(→ {@link PendingCommitDelivery}). 채번 시딩처럼 한 번에 끝나는
-     * 읽기에는 이쪽이 간결하다.
+     * 맞지 않는다(→ {@link PendingCommitDelivery}). 채번 시딩이나 배치 폴링처럼
+     * 한 번에 끝나는 읽기에는 이쪽이 간결하다.
      */
     @Bean
     public JdbcTemplate targetJdbcTemplate(DataSource targetDataSource, JdbcTargetProperties properties) {
         JdbcTemplate template = new JdbcTemplate(targetDataSource);
         template.setQueryTimeout(properties.queryTimeoutSeconds());
         return template;
+    }
+
+    /**
+     * 대상 테이블명.
+     *
+     * <p>빈으로 두는 이유는 이 값을 필요로 하는 config 가 넷이기 때문이다
+     * (주문 적재 · 주문 채번 시딩 · 배송 적재 · 배송 채번 시딩).
+     * 각자 {@code secrets/} 를 읽으면 같은 파싱이 넷으로 흩어진다 — {@link TargetTables} 참조.
+     */
+    @Bean
+    public TargetTables targetTables(SecretsLoader secretsLoader) {
+        TargetTables tables = TargetTables.from(secretsLoader);
+        log.info("[JDBC] 대상 테이블 — 주문={}, 배송={}", tables.orderTable(), tables.shipmentTable());
+        return tables;
     }
 
     /**

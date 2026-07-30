@@ -1,14 +1,13 @@
 package com.inspien.eai.integration.order.receiver;
 
-import com.inspien.eai.bootstrap.store.BootstrapArtifactStore;
 import com.inspien.eai.common.ftp.FtpClientFactory;
 import com.inspien.eai.common.ftp.FtpTargetProperties;
 import com.inspien.eai.common.id.SequentialIdGenerator;
 import com.inspien.eai.common.jdbc.JdbcTargetProperties;
 import com.inspien.eai.common.jdbc.MaxIdSequenceSeeder;
+import com.inspien.eai.common.jdbc.TargetTables;
 import com.inspien.eai.common.secret.ApplicantKey;
 import com.inspien.eai.common.secret.ApplicantName;
-import com.inspien.eai.common.secret.SecretsLoader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -16,15 +15,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import javax.sql.DataSource;
-import java.util.Properties;
 
 /**
  * IF-ORD-001 의 수신처 조립 — JDBC(ORDER_TB) + FTP(영수증 파일).
  *
- * <p>테이블명을 상수로 박지 않고 BOOT-000 산출물({@code TABLE=ORDER_TB})에서 읽는다.
+ * <p>테이블명은 상수로 박지 않고 BOOT-000 산출물에서 온다 — {@link TargetTables} 참조.
  * 대상 스키마는 우리가 정한 것이 아니라 <b>과제 측이 알려 준 것</b>이므로,
- * 알려 준 경로에서 읽는 것이 맞다. 코드에 박아 두면 두 곳이 어긋날 수 있고,
- * 그때 어느 쪽이 진실인지 판단할 근거가 없어진다.
+ * 알려 준 경로에서 읽는 것이 맞다.
  *
  * <p><b>두 Receiver 는 같은 레코드 리스트를 소비한다.</b> 여기서는 조립만 하고,
  * 전달 순서(JDBC 먼저 · FTP 나중)는 조율자가 정한다 — 정의서 3.9.
@@ -37,11 +34,11 @@ public class OrderReceiverConfig {
 
     @Bean
     public OrderTbReceiver orderTbReceiver(DataSource targetDataSource,
-                                           SecretsLoader secretsLoader,
+                                           TargetTables targetTables,
                                            JdbcTargetProperties properties) {
         return new OrderTbReceiver(
                 targetDataSource,
-                orderTable(secretsLoader),
+                targetTables.orderTable(),
                 properties.batchSize(),
                 properties.queryTimeoutSeconds());
     }
@@ -62,7 +59,7 @@ public class OrderReceiverConfig {
     }
 
     /**
-     * 채번 카운터 복원 (D-09).
+     * 채번 카운터 복원 (D-09 / D-13).
      *
      * <p>{@code initMethod} 로 등록해 <b>컨텍스트 갱신 중</b>에 실행한다.
      * {@code ApplicationRunner} 는 웹 서버가 요청을 받기 시작한 뒤에 돌기 때문에,
@@ -75,13 +72,8 @@ public class OrderReceiverConfig {
     public MaxIdSequenceSeeder orderIdSequenceSeeder(JdbcTemplate targetJdbcTemplate,
                                                      @Qualifier("orderIdGenerator") SequentialIdGenerator orderIdGenerator,
                                                      ApplicantKey applicantKey,
-                                                     SecretsLoader secretsLoader) {
+                                                     TargetTables targetTables) {
         return new MaxIdSequenceSeeder(
-                targetJdbcTemplate, orderIdGenerator, applicantKey, orderTable(secretsLoader), ID_COLUMN);
-    }
-
-    private String orderTable(SecretsLoader secretsLoader) {
-        Properties conn = secretsLoader.load(BootstrapArtifactStore.ORDER_TB_CONN);
-        return secretsLoader.require(conn, "TABLE", "ORDER_TB_CONN");
+                targetJdbcTemplate, orderIdGenerator, applicantKey, targetTables.orderTable(), ID_COLUMN);
     }
 }
