@@ -4,10 +4,11 @@
 
 | 항목 | 내용 |
 |---|---|
-| 문서 버전 | **1.1 (확정)** |
+| 문서 버전 | **1.2 (확정)** |
 | 근거 | `신입경력개발자_과제.pdf` 3.1 / 3.2 / 3.3 / 4.1 + **BOOT-000 / BOOT-001 실측** |
 | 확정 방식 | 명세서가 아니라 **실물 조회 결과**를 기준으로 삼는다 |
 | 1.1 변경점 | IF-SHP-001 구현 확정 (4장 전면 개정), D-22 ~ D-26 추가, `Step` 에서 `STATUS_UPDATE` 제거, `EAI-4006` 신설 |
+| 1.2 변경점 | IF-SHP-001 end-to-end 검증 완료 → 7장 시연 절차를 실측 기준으로 정정, **8장 검증 이력 신설** |
 
 > ⚠️ 이 문서에는 접속정보·인증정보·APPLICANT_KEY 실제 값을 기재하지 않는다. 형식과 구조만 기술한다.
 
@@ -867,15 +868,17 @@ SELECT * FROM ORDER_TB
 # (a) 수동 트리거 — 기다릴 필요 없다. 실행 이력에 TRIGGER=MANUAL 로 남는다
 curl.exe -X POST http://localhost:8080/api/v1/shipments/batch
 
-# (b) 5분 주기 대기 — 자동 실행을 보이려면 이쪽. 스레드명 eai-batch- 로 구분된다
-Get-Content -Wait -Tail 20 logs\interface\interface-$(Get-Date -Format yyyyMMdd).log
+# (b) 5분 주기 대기 — 자동 실행을 보이려면 이쪽. 이력에 TRIGGER=SCHEDULED 로 남는다
+Get-Content -Wait -Tail 20 logs\interface\interface-$(Get-Date -Format yyyyMMdd).log -Encoding UTF8
 ```
 
 > 주기를 줄여 보여 주려면 `inspien.batch.shipment.fixed-delay: PT30S` (ISO-8601 표기 필수).
+> **이때 `lock-ttl` 도 함께 줄여야 한다** (`PT20S` 등). 기동 시 `lockTtl < fixedDelay` 를 검증하므로
+> 주기만 줄이면 바인딩 단계에서 **기동이 실패한다** (4.7 · 8.2 실측).
 > 반대로 상태를 고정해야 하면 `inspien.batch.shipment.enabled: false` — **자동만 꺼지고
 > 수동 트리거는 그대로 동작한다.**
 
-기대 응답: `result=SUCCESS`, `processedCount=63`
+기대 응답: `result=SUCCESS`, `processedCount=` 직전에 적재한 미전송(`STATUS='N'`) 행 수
 
 **확인**
 
@@ -895,14 +898,101 @@ SELECT STATUS, COUNT(*) FROM ORDER_TB
 **멱등성 시연** — 수동 트리거를 한 번 더 누른다. `processedCount=0`, `result=SUCCESS` 가 나온다.
 `STATUS='Y'` 로 닫혀 조회 대상에서 빠졌기 때문이며, 이것이 D-22 가 말하는 멱등성의 근거다.
 
-**겹침 방지 시연** — 두 창에서 동시에 누르면 한쪽이 `409` + `EAI-4001` 을 받는다.
+**겹침 방지 시연 (1.2 정정)** — **두 창에서 동시에 누르는 방식은 쓰지 않는다.** 수행이 수십 ms 로
+끝나 경합이 재현되지 않고, 만에 하나 락이 듣지 않으면 같은 주문이 두 벌 적재되어 **되돌릴 수 없다**(B10).
+대신 락을 직접 걸어 두고 트리거한다 — 결정적이고, 행이 하나도 생기지 않는다.
+
+```powershell
+docker exec inspien-redis redis-cli SET eai:lock:if-shp-001 demo PX 30000
+curl.exe -i -X POST http://localhost:8080/api/v1/shipments/batch   # 30초 안에
+docker exec inspien-redis redis-cli DEL eai:lock:if-shp-001
+```
+
+`409` + `EAI-4001` 이 돌아오고, 실행 이력에는 `START` 와 `END` **두 줄만** 남는다.
+락을 잡지 못해 파이프라인에 진입조차 하지 않았다는 사실이 구간 줄의 부재로 드러난다.
 
 ### 7.4 운영 관점 제시
 
 ```powershell
-type logs\interface\interface-$(Get-Date -Format yyyyMMdd).log
+Get-Content logs\interface\interface-$(Get-Date -Format yyyyMMdd).log -Encoding UTF8
 ```
+
+> **`-Encoding UTF8` 을 빠뜨리지 않는다.** PowerShell 5.1 은 BOM 없는 UTF-8 파일을 시스템
+> 코드페이지(한글 Windows = MS949)로 읽는다. `type` 이나 옵션 없는 `Get-Content` 는
+> **멀쩡한 이력의 한글을 깨뜨려 보여 준다.** 파일은 정상인데 화면만 깨지는 것이라,
+> 시연 중에 나오면 정상 동작하는 시스템을 두고 인코딩을 해명하게 된다.
+> `[Console]::OutputEncoding` 은 출력 인코딩이라 이 문제를 막지 못한다 (8.2 실측).
 
 한 실행의 이력이 `START → SENDER → VALIDATOR → MAPPER → RECEIVER_JDBC(PREPARE) →
 RECEIVER_FTP(PREPARE) → RECEIVER_JDBC(COMMIT) → RECEIVER_FTP(COMMIT) → END` 로 남는다.
 **이 순서 자체가 보상 트랜잭션 설계의 증거**이므로 발표 자료에 그대로 쓴다.
+
+---
+
+## 8. 검증 이력
+
+설계가 의도대로 동작했는지를 **실물 대상으로** 확인한 기록이다.
+"돌려 봤다" 가 아니라 **"무엇을 관측해 무엇을 단언할 수 있게 됐는가"** 를 남긴다.
+
+### 8.1 IF-ORD-001 (2026-07-30)
+
+| 항목 | 결과 |
+|---|---|
+| 응답 | `PARTIAL` / `processedCount=63` / `skippedCount=11` (`ORPHAN_ITEM=7`, `HEADER_WITHOUT_ITEM=4`) |
+| ORDER_TB | 63행 적재 |
+| 영수증 FTP | 최종 파일명으로 전송, 파일명·내용 한글 정상 |
+
+샘플에 의도적으로 심어둔 11건이 응답의 `skipDetail` 로 그대로 드러났다 — D-02 가 말하는
+"버린 건수를 반드시 드러낸다" 가 산출물로 확인된 지점이다.
+
+### 8.2 IF-SHP-001 (2026-07-31)
+
+**전제 상태** — `ORDER_TB` 에 `STATUS='N'` 126행(IF-ORD-001 2회 실행분), `SHIPMENT_TB` 0행.
+126 > 청크 상한 100 이므로 **청크 반복 경로가 이번 실행에 포함됐다** — 63건이었다면 1청크로 끝나
+가장 위험한 코드 경로를 못 보고 지나갔을 것이다.
+
+| 확인 항목 | 결과 | 관측 근거 |
+|---|---|---|
+| 채번 시딩 (D-09 · D-13) | 통과 | 기동 로그 `MAX(ORDER_ID)=A125` — 적재 126행과 일치. 다음 발급은 `A126` |
+| 대상 동일성 (D-04) | 통과 | 기동마다 재확인 로그 출력 — 전제가 깨지면 기동이 멈춘다 |
+| 락 충돌 (D-19) | 통과 | `409` + `EAI-4001`. 이력은 `START`·`END` **2줄만** — 파이프라인 미진입 |
+| 전건 처리 | 통과 | `SUCCESS` / `processedCount=126` / `skippedCount=0` / 238ms |
+| 청크 반복 (D-26) | 통과 | `CHUNK=1`(100건, `CURSOR=-`) → `CHUNK=2`(26건, `CURSOR=A099`). **3청크를 만들지 않음** |
+| 트랜잭션 경계 | 통과 | 청크마다 `RECEIVER_JDBC` `PREPARE`/`COMMIT` 각 1줄 |
+| 상태 갱신 (4.4 · D-24) | 통과 | `STATUS` 집계 `Y=126`, `N` 0건. `STATUS_UPDATE` 구간 없이 건수 보존 |
+| 인코딩 | 통과 | `SHIPMENT_TB` 배송지 한글 정상 (`서울특별시 강남구`) |
+| 멱등성 (D-22) | 통과 | 재실행 `processedCount=0` / `SUCCESS`. `SENDER` 0건 뒤 즉시 `END` — **빈 트랜잭션을 열지 않는다** |
+| 커서 비영속화 (D-26) | 통과 | 재실행의 `SENDER` 가 `CURSOR=-` 로 시작 — 저장했다면 `A125` 가 찍혔을 것 |
+| 설정 검증 (4.7) | 통과 | `fixed-delay=PT30S` + `lock-ttl=PT4M` → **바인딩 단계에서 기동 실패**. 커넥션 풀도 만들기 전 |
+| 스케줄러 | 통과 | `TRIGGER=SCHEDULED`. 앞 실행의 `END` 로부터 30.0초 뒤 `START` — `fixedDelay` 의미론 그대로 |
+
+**부수 발견.** `Get-Content` 는 `-Encoding UTF8` 없이는 이력 파일의 한글을 깨뜨려 보여 준다.
+파일 손상이 아니라 읽기 인코딩 문제다 (7.4 반영).
+
+**실물로 검증하지 않은 것.** 청크 도중 실패 시의 `PARTIAL` 보고(4.6)와 락 TTL 초과 시의
+토큰 불일치 검출(4.7)은 단위 테스트로만 덮어 둔다. 실패를 일으키려면 **되돌릴 수 없는
+행을 공유 환경에 남기게 되기 때문**이다 (B10). 검증하지 않은 것을 검증한 것처럼 적지 않는다.
+
+### 8.3 면접 당일 실행 순서
+
+위 검증으로 기존 126행은 전부 `STATUS='Y'` 가 됐다. 따라서 **당일에는 주문을 새로 보내야**
+배치가 처리할 대상이 생긴다. 채번은 `A126` 부터 이어지므로 기존 행과 충돌하지 않는다.
+
+> ⚠️ **기존 행의 `STATUS` 를 `'N'` 으로 되돌리지 않는다.** 그 행들은 이미 `SHIPMENT_TB` 에
+> 대응 행을 가지고 있으므로, 되돌리면 다음 배치가 **같은 주문에 배송 지시를 한 벌 더 만든다.**
+> 지울 수도 없다(B10). 시연을 위해 상태를 손보는 것은 D-22 가 구조적으로 막아 둔 사고를
+> **손으로 만들어 넣는 일**이다. 새로 쓰는 편이 더 쉬워 그럴 이유도 없다.
+
+| 순서 | 할 일 | 보여 줄 것 |
+|---|---|---|
+| 사전 (발표 전) | 콘솔 인코딩 → `docker compose up -d` → `bootstrapRun` → `probeRun` → 빌드 1회 | — |
+| 1 | `.\gradlew.bat bootRun` | 채번 시딩·D-04 재확인 로그 |
+| 2 | IF-ORD-001 주문 전송 (7.2) | `PARTIAL` 63/11 — 버린 건수를 드러낸다 |
+| 3 | ORDER_TB 조회 (참여자명·당일) + FTP 영수증 다운로드 | 과제 5.1 시연 요구사항 |
+| 4 | IF-SHP-001 수동 트리거 (7.3) | `SUCCESS` — 청크·구간 이력 |
+| 5 | SHIPMENT_TB 조회 + `STATUS` 집계 | 적재와 갱신이 같은 트랜잭션임 |
+| 6 | 멱등성 1회 · 겹침 방지 1회 | `0건/SUCCESS`, `409/EAI-4001` |
+| 7 | 이력 파일 통독 (7.4) | 구간 순서 = 보상 트랜잭션의 증거 |
+
+자동 실행을 보일 필요가 있으면 4번 전에 주기를 줄여 띄운다 — `fixed-delay` 와 `lock-ttl` 을
+**함께** 줄여야 하며(7.3), 이때 4번 수동 트리거는 생략한다.
