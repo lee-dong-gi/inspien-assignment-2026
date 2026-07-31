@@ -70,13 +70,33 @@ Sender ──▶ Validator ──▶ Mapper ──▶ DeliveryCoordinator ──
 |---|---|
 | JDK | 21 (Gradle toolchain 이 강제) |
 | Docker | Redis 컨테이너용 |
-| 셸 | PowerShell 기준으로 기술 |
+| 셸 | 아래 명령은 PowerShell 기준. macOS · Linux 는 바로 아래 대조표 참조 |
 
 ```powershell
 # 콘솔 한글 출력. 이걸 안 하면 로그·응답의 한글이 깨져 보이고,
 # 실제로는 정상인 데이터를 깨진 것으로 오진하게 된다.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 ```
+
+#### macOS · Linux 에서 실행할 때
+
+터미널이 기본 UTF-8 이므로 위 인코딩 설정은 필요 없다. 명령만 아래로 바꿔 읽으면 된다.
+
+| PowerShell | macOS · Linux |
+|---|---|
+| `.\gradlew.bat` | `./gradlew` |
+| `curl.exe` | `curl` |
+| `` ` `` (줄 이음) | `\` |
+| `$(Get-Date -Format yyyyMMdd)` | `$(date +%Y%m%d)` |
+| `Get-Content ... -Encoding UTF8` | `cat` (인코딩 옵션 불필요) |
+| `Get-Content -Wait -Tail 20` | `tail -f -n 20` |
+| `Copy-Item a b` | `cp a b` |
+
+> Windows 에서 클론한 저장소를 그대로 옮겨 왔다면 `chmod +x gradlew` 가 필요하고,
+> `bad interpreter` 가 나면 개행이 CRLF 인 것이다 (`perl -pi -e 's/\r\n/\n/' gradlew`).
+
+> EUC-KR 인 `secrets/sample-data.euckr.xml` 을 터미널로 볼 때는 변환이 필요하다.
+> `iconv -f EUC-KR -t UTF-8 secrets/sample-data.euckr.xml | head -20`
 
 ### 1. 로컬 인프라 기동
 
@@ -208,7 +228,20 @@ curl.exe -X POST http://localhost:8080/api/v1/shipments/batch
 
 **멱등성 확인** — 한 번 더 누르면 `processedCount=0`, `result=SUCCESS` 가 나온다. 조회 조건이 `STATUS='N'` 이고 적재와 상태 갱신이 같은 트랜잭션이라, 확정된 건은 다음 조회에서 빠진다. 멱등성의 근거가 PK 위반 처리가 아니라 **조회 조건 + 트랜잭션 경계**에 있다는 것이 이 인터페이스 설계의 요점이다 (D-22).
 
-**겹침 방지 확인** — 두 창에서 동시에 누르면 한쪽이 `409` + `EAI-4001` 을 받는다. 500 이 아닌 이유는, 서버가 고장난 것이 아니라 상태가 충돌한 것이고 호출자가 할 일은 "잠시 뒤 다시" 이지 "담당자에게 연락" 이 아니기 때문이다 (D-19).
+**겹침 방지 확인** — 락을 직접 걸어 둔 뒤 트리거한다.
+
+```powershell
+docker exec inspien-redis redis-cli SET eai:lock:if-shp-001 demo PX 30000
+curl.exe -i -X POST http://localhost:8080/api/v1/shipments/batch   # 30초 안에
+docker exec inspien-redis redis-cli DEL eai:lock:if-shp-001
+```
+
+`409` + `EAI-4001` 이 돌아오고, 실행 이력에는 `START` 와 `END` **두 줄만** 남는다 — 락을 잡지 못해 파이프라인에 진입조차 하지 않았다는 사실이 구간 줄의 부재로 드러난다.
+
+500 이 아닌 이유는, 서버가 고장난 것이 아니라 상태가 충돌한 것이고 호출자가 할 일은 "잠시 뒤 다시" 이지 "담당자에게 연락" 이 아니기 때문이다 (D-19).
+
+> **두 창에서 동시에 누르는 방식은 권하지 않는다.** 수행이 수십 ms 로 끝나 경합이 재현되지 않고,
+> 만에 하나 락이 듣지 않으면 같은 주문이 두 벌 적재되어 **되돌릴 수 없다**(append-only).
 
 ---
 
@@ -282,8 +315,12 @@ curl.exe -X POST http://localhost:8080/api/v1/shipments/batch
 애플리케이션 로그와 **분리**해 `logs/interface/interface-yyyyMMdd.log` 로 남긴다.
 
 ```powershell
-Get-Content -Wait -Tail 20 logs\interface\interface-$(Get-Date -Format yyyyMMdd).log
+Get-Content -Wait -Tail 20 logs\interface\interface-$(Get-Date -Format yyyyMMdd).log -Encoding UTF8
 ```
+
+> `-Encoding UTF8` 을 빠뜨리지 않는다. PowerShell 5.1 은 BOM 없는 UTF-8 파일을 시스템 코드페이지로
+> 읽어 **멀쩡한 이력의 한글을 깨뜨려 보여 준다.** 파일은 정상인데 화면만 깨지는 것이라 오진하기 쉽다.
+> macOS · Linux 는 `tail -f -n 20 logs/interface/interface-$(date +%Y%m%d).log` 로 옵션 없이 된다.
 
 한 실행이 이렇게 남는다.
 
@@ -320,7 +357,25 @@ START → SENDER → VALIDATOR → MAPPER
 
 ---
 
-## AI 활용 내역 (과제 5.1 요구 항목)
+## 개발 환경과 AI 활용 내역 (과제 5.1 요구 항목)
+
+### 개발 환경
+
+| 구분 | 도구 |
+|---|---|
+| IDE | IntelliJ IDEA |
+| 빌드 | Gradle (Wrapper 동봉, toolchain 으로 JDK 21 강제) |
+| 형상관리 | Git / GitHub — 작업 단위 커밋 |
+| 로컬 인프라 | Docker Desktop (Redis 7.4) |
+| DB 클라이언트 | DBeaver — 원격 Oracle 19c 조회 |
+| FTP 클라이언트 | FileZilla — 업로드 결과 확인 (문자셋 UTF-8 강제) |
+| API 호출 | curl |
+| 테스트 | JUnit 5 · Mockito (Mockito 5 엄격 모드) |
+| AI | **Claude (Opus)** — 웹 대화 + MCP 파일시스템 서버 |
+
+AI 는 **Claude 하나만** 썼다. 여러 개를 섞지 않은 것은, 같은 맥락을 이어서 판단을 검증받는 쪽이 낫다고 봤기 때문이다. 대화가 끊기면 앞서 정한 설계 결정을 다시 설명해야 하고, 그때 생기는 미묘한 어긋남이 일관성 없는 코드로 나타난다.
+
+### AI 활용
 
 **도구를 쓴 것이 아니라 작업 방식을 정해 놓고 들어갔다.** 역할을 셋으로 나눴다.
 
@@ -403,4 +458,5 @@ DELE  →  550 Could not delete ...: Operation not permitted
 - [x] IF-SHP-001 — 단위 테스트 65건 (전체 223건 통과)
 - [x] To-Be 아키텍처 다이어그램 (과제 3.4 제출물)
 - [x] IF-SHP-001 — **end-to-end 검증 완료** (126행 전건 처리 / 2청크 / 멱등성·겹침 방지·스케줄러 확인 — 정의서 8.2)
-- [ ] 면접 발표 자료 (대본은 `docs/presentation-outline.md` 에 작성 완료)
+- [x] 면접 발표 자료 18장 (대본은 `docs/presentation-outline.md`, 설명 표현 모음은 `docs/presentation-notes.md`)
+- [x] 시연 절차 확정 (정의서 7장 · 8.3 면접 당일 실행 순서)
