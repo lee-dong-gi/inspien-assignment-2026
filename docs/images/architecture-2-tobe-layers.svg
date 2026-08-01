@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="680" height="560" viewBox="0 0 680 560" role="img">
 <title>To-Be EAI 계층도</title>
-<desc>송신 시스템, EAI 연계 엔진, 수신 시스템 3단 구조. 엔진 안에 Sender, Validator, Mapper, Coordinator, Receiver 다섯 구간이 세로로 놓이고 Sender 와 Receiver 가 교체 지점이다. 두 인터페이스가 색으로 구분되어 같은 엔진을 통과한다.</desc>
+<desc>송신 시스템, EAI 연계 엔진, 수신 시스템 3단 구조. 엔진 안에 Sender, Validator, Mapper, Coordinator, Receiver 다섯 구간이 세로로 놓이고 Sender 와 Receiver 가 교체 지점이다. 두 인터페이스가 색으로 구분되어 같은 엔진을 통과하며, IF-SHP-001 의 수신처는 SHIPMENT_TB 적재와 ORDER_TB 상태 갱신이 한 트랜잭션이다.</desc>
 <style>
 text{font-family:"Malgun Gothic","Apple SD Gothic Neo","Noto Sans KR",sans-serif}
 .ts{font-size:12px;fill:#5f5e5a}
@@ -43,17 +43,17 @@ path,line{fill:none}
 <line x1="345" y1="258" x2="345" y2="270" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#arrow)"/>
 <line x1="345" y1="318" x2="345" y2="330" stroke="#5f5e5a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
-<rect class="zone" x="500" y="196" width="140" height="208" rx="12"/>
+<rect class="zone" x="500" y="196" width="140" height="216" rx="12"/>
 <text class="th" x="512" y="218">수신 시스템</text>
 <g class="purple"><rect x="512" y="232" width="116" height="44" rx="8"/><text class="ts" x="570" y="254" text-anchor="middle" dominant-baseline="central">ORDER_TB</text></g>
 <g class="purple"><rect x="512" y="288" width="116" height="44" rx="8"/><text class="ts" x="570" y="310" text-anchor="middle" dominant-baseline="central">FTP 영수증</text></g>
-<g class="teal"><rect x="512" y="344" width="116" height="44" rx="8"/><text class="ts" x="570" y="366" text-anchor="middle" dominant-baseline="central">SHIPMENT_TB</text></g>
+<g class="teal"><rect x="512" y="344" width="116" height="52" rx="8"/><text class="ts" x="570" y="362" text-anchor="middle" dominant-baseline="central">SHIPMENT_TB</text><text class="ts" x="570" y="380" text-anchor="middle" dominant-baseline="central" font-size="10">+ ORDER_TB.STATUS</text></g>
 
 <path d="M178 124C206 124 212 100 246 100" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
 <path d="M178 192C212 192 210 122 246 120" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
 <path d="M444 350C470 350 474 254 506 254" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
 <path d="M444 358C468 358 478 310 506 310" stroke="#7F77DD" stroke-width="1.5" marker-end="url(#arrow)"/>
-<path d="M444 366C472 366 480 366 506 366" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
+<path d="M444 366C472 366 480 370 506 370" stroke="#1D9E75" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#arrow)"/>
 
 <rect x="40" y="256" width="150" height="88" rx="8" fill="none" stroke="#d3d1c7" stroke-width="0.5"/>
 <text class="ts" x="52" y="278">인터페이스</text>
