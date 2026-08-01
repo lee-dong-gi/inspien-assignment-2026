@@ -440,6 +440,8 @@ DELE  →  550 Could not delete ...: Operation not permitted
 | [docs/interface-spec.md](docs/interface-spec.md) | 인터페이스 정의서 v1.2 — 매핑 규칙, 검증 기준, 에러 코드, 설계 결정 D-01~D-26, 시연 절차, **검증 이력·면접 당일 실행 순서(8장)** |
 | [docs/architecture.md](docs/architecture.md) | 과제 3.4 아키텍처 (As-Is / To-Be, 보상 트랜잭션 시퀀스, 배치 청크 루프) |
 | [sql/oracle-schema.reference.sql](sql/oracle-schema.reference.sql) | BOOT-001 로 실측한 대상 스키마 (참조용 — 이 프로젝트는 DDL 을 실행하지 않는다) |
+| [docs/presentation-outline.md](docs/presentation-outline.md) | 발표 대본 — 결과 화면을 나열하지 않고 설계 판단을 순서대로 푸는 구성 |
+| [docs/presentation-notes.md](docs/presentation-notes.md) | 설계 논의 중 나온 설명 표현 모음과 최종 덱 구성표 |
 
 ## 진행 현황
 
