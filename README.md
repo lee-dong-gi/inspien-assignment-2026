@@ -25,12 +25,18 @@
 
 ## 아키텍처 요약
 
-과제 3.4 가 요구한 As-Is / To-Be 대비는 **[docs/architecture.md](docs/architecture.md)** 에 있다.
+과제 3.4 가 요구한 As-Is / To-Be 대비는 **[docs/architecture.md](docs/architecture.md)** 에 있다. 그림 둘만 먼저 옮긴다.
 
-| 그림 | 파일 |
-|---|---|
-| ① As-Is → To-Be 대비 | [docs/images/architecture-1-asis-tobe.svg](docs/images/architecture-1-asis-tobe.svg) |
-| ② To-Be 내부 계층 | [docs/images/architecture-2-tobe-layers.svg](docs/images/architecture-2-tobe-layers.svg) |
+### ① As-Is → To-Be 대비
+
+![As-Is 와 To-Be 대비](docs/images/architecture-1-asis-tobe.svg)
+
+### ② To-Be 내부 계층
+
+파이프라인을 인터페이스별로 두 줄 그리지 않고 **골격 하나에 ① Sender · ⑤ Receiver 를 교체 지점으로** 표시했다.
+보라 실선이 IF-ORD-001, 청록 점선이 IF-SHP-001 이다.
+
+![To-Be 내부 계층](docs/images/architecture-2-tobe-layers.svg)
 
 핵심만 옮기면 이렇다. 과제 2.1 이 준 참고 구조는 **Sender → 변환 → Receiver** 세 칸인데, 가운데 한 칸을 셋으로 나눴다.
 
